@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -38,7 +40,9 @@ public class CassandraPageTextIngester extends Ingester{
 		    		+ "volumeID text, "
 					+ "accessLevel int static, "
 		    		//+ "language text static, "
-					//+ "mets text static,"
+					+ "mets text static,"
+					+ "marc text static,"
+				    + "volumezip blob static,"
 		    		+ "volumeByteCount bigint static, "
 					+ "volumeCharacterCount int static, "
 		    		+ "sequence text, "
@@ -53,12 +57,12 @@ public class CassandraPageTextIngester extends Ingester{
 		}
 	}
 	
-	public void ingest(List<String> volumes) {
+	/*public void ingest(List<String> volumes) {
 		for(String id : volumes) {
 			ingestOne(id);
 		}
 		
-	}
+	}*/
 
 	public boolean ingestOne(String volumeId) {
 		String cleanId = Tools.cleanId(volumeId);
@@ -182,9 +186,12 @@ public class CassandraPageTextIngester extends Ingester{
 			zis.close();
 			//7. add static columns/fields into the first page
 			if (firstPageInsert != null) {
-				firstPageInsert.value("accessLevel", 1) // will decide access level based on rights database
+				ByteBuffer zipBinaryContent = getByteBuffer(volumeZipFile);
+				firstPageInsert/*.value("accessLevel", 1)*/ // will decide access level based on rights database
 						.value("volumeByteCount", volumeByteCount)
-						.value("volumeCharacterCount", volumeCharacterCount);
+						.value("volumeCharacterCount", volumeCharacterCount)
+						.value("mets", volumeRecord.getMETSContents())
+						.value("volumezip", zipBinaryContent);
 			}
 			//8. then push the volume into cassandra
 			cassandraManager.execute(batchStmt);
@@ -198,6 +205,29 @@ public class CassandraPageTextIngester extends Ingester{
 		
 		volumeAdded = true;
 		return volumeAdded;
+	}
+
+	private ByteBuffer getByteBuffer(File file) {
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		byte[] buffer = new byte[32767];
+		
+		try {
+			InputStream is = new FileInputStream(file);
+			int read = -1;
+			while((read = is.read(buffer)) > 0) {
+				bos.write(buffer, 0, read);
+			}
+			is.close();
+			
+			byte[] bytes = bos.toByteArray();
+			ByteBuffer bf = ByteBuffer.wrap(bytes);
+			return bf;
+		} catch (FileNotFoundException e) {
+			log.error(file.getAbsolutePath() + " is not found");
+		} catch (IOException e) {
+			log.error("IOException while attempting to read " + file.getName());
+		}
+		return null;
 	}
 
 	private byte[] readPagecontentsFromInputStream(ZipInputStream zis) {

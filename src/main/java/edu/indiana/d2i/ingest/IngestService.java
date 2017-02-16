@@ -6,7 +6,10 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import edu.indiana.d2i.ingest.cassandra.CassandraAccessLevelUpdater;
 import edu.indiana.d2i.ingest.cassandra.CassandraIngester;
+import edu.indiana.d2i.ingest.cassandra.CassandraMarcUpdater;
+import edu.indiana.d2i.ingest.cassandra.CassandraPageTextIngester;
 import edu.indiana.d2i.ingest.util.Configuration;
 import edu.indiana.d2i.ingest.util.Tools;
 
@@ -15,9 +18,20 @@ public class IngestService {
 	public static void main(String[] args) {
 		log.info("load volume ids to ingest...");
 		List<String> volumesToIngest = Tools.getVolumeIds(new File(Configuration.getProperty("VOLUME_ID_LIST")));
-		Ingester ingester = new CassandraIngester();
-		log.info("ingest process starts");
+		CassandraIngester ingester = new CassandraIngester();
+		ingester.addIngester(new CassandraPageTextIngester());
+		log.info("page and zip ingest process starts");
 		ingester.ingest(volumesToIngest);
-		log.info("ingest process ends");
+		log.info("page and zip ingest process ends");
+		
+		log.info("update marc...");
+		Updater marcUpdater = new CassandraMarcUpdater();
+		marcUpdater.update(volumesToIngest);
+		log.info("marc update ends");
+		
+		log.info("update access level ...");
+		Updater accessLevelUpdater = new CassandraAccessLevelUpdater();
+		accessLevelUpdater.update(volumesToIngest);
+		log.info("access level update ends");
 	}
 }
