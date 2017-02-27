@@ -8,7 +8,7 @@ import org.apache.logging.log4j.Logger;
 
 import edu.indiana.d2i.ingest.cassandra.CassandraAccessLevelUpdater;
 import edu.indiana.d2i.ingest.cassandra.CassandraIngester;
-import edu.indiana.d2i.ingest.cassandra.CassandraMarcUpdater;
+import edu.indiana.d2i.ingest.cassandra.MarcProcessor;
 import edu.indiana.d2i.ingest.cassandra.CassandraPageTextIngester;
 import edu.indiana.d2i.ingest.util.Configuration;
 import edu.indiana.d2i.ingest.util.Tools;
@@ -25,8 +25,8 @@ public class IngestService {
 		log.info("page and zip ingest process ends");
 		
 		log.info("update marc...");
-		Updater marcUpdater = new CassandraMarcUpdater();
-		marcUpdater.update(volumesToIngest);
+		MarcProcessor marcProcessor = new MarcProcessor();
+		marcProcessor.process(volumesToIngest);
 		log.info("marc update ends");
 		
 		log.info("update access level ...");
