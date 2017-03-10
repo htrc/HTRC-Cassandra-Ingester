@@ -2,6 +2,7 @@ package edu.indiana.d2i.ingest.cassandra;
 
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.util.LinkedList;
 import java.util.List;
 
 import edu.indiana.d2i.ingest.Ingester;
@@ -17,6 +18,9 @@ public class CassandraIngester extends Ingester{
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
+	}
+	public CassandraIngester() {
+		ingestersInOrder = new LinkedList<Ingester>();
 	}
 	public void addIngester(Ingester ingester) {
 		ingestersInOrder.add(ingester);
