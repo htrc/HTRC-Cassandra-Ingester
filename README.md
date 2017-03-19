@@ -17,6 +17,13 @@ the following command:
 mvn clean package
 ```
 
+## Create Keyspace
+
+The code will create columnfamily if it does not exist. However, a keyspace needs to be created with CQL shell. For example:
+```
+CREATE KEYSPACE htrccorpus WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'}
+```
+
 ## Run
 ```
 java -cp htrc-cassandra-ingester.jar edu.indiana.d2i.ingest.IngestService
