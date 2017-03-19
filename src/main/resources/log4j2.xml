@@ -14,7 +14,7 @@
                      fileName="${LOG_DIR}/ingest.log"
                      filePattern="${ARCHIVE}/ingest.log.%d{yyyy-MM-dd-hh-mm}.gz">
             <PatternLayout pattern="${PATTERN}"/>
-            <TimeBasedTriggeringPolicy/>
+            <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
         </RollingFile>
     </Appenders>
     <Loggers>

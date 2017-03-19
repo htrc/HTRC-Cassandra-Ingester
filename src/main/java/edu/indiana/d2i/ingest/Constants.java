@@ -19,7 +19,7 @@ public class Constants {
 	public static final String DEFAULT_MARC_JSON_FILES = "meta_pd_open_access.json, meta_pd_google.json, meta_ic.json";
 	public static final String DEFAULT_MARC_COLFAMILY="testmarc";
 	public static final String DEFAULT_MARC_COLFAMILY_KEY="volumeid";
-	public static final String DEFAULT_MARC_COLUMN="marc";
+	public static final String DEFAULT_MARC_COLUMN="semanticMetadata";
 	public static final String DEFAULT_MARC_INGESTER_OUTFILE="marc-ingester-output.txt";
 	
 	// some constants to locate randomly distributed volume zip and mets files

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
+import java.util.Date;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -38,13 +39,15 @@ public class CassandraPageTextIngester extends Ingester{
 		if(! cassandraManager.checkTableExist(columnFamilyName)) {
 			String createTableStr = "CREATE TABLE " + columnFamilyName + " ("
 		    		+ "volumeID text, "
-					+ "accessLevel int static, "
+					+ "accessLevel int STATIC, "
 		    		//+ "language text static, "
-					+ "mets text static,"
-					+ "marc text static,"
-				    + "volumezip blob static,"
-		    		+ "volumeByteCount bigint static, "
-					+ "volumeCharacterCount int static, "
+					+ "structMetadata text STATIC,"
+					+ "semanticMetadata text STATIC,"
+					+ "lastModifiedTime timestamp STATIC,"
+				    + "cksumValidationTime timestamp STATIC,"
+				    + "volumezip blob STATIC,"
+		    		+ "volumeByteCount bigint STATIC, "
+					+ "volumeCharacterCount int STATIC, "
 		    		+ "sequence text, "
 		    		+ "byteCount bigint, "
 		    		+ "characterCount int, "
@@ -190,8 +193,10 @@ public class CassandraPageTextIngester extends Ingester{
 				firstPageInsert/*.value("accessLevel", 1)*/ // will decide access level based on rights database
 						.value("volumeByteCount", volumeByteCount)
 						.value("volumeCharacterCount", volumeCharacterCount)
-						.value("mets", volumeRecord.getMETSContents())
-						.value("volumezip", zipBinaryContent);
+						.value("structMetadata", volumeRecord.getMETSContents())
+						.value("volumezip", zipBinaryContent)
+						.value("lastModifiedTime", new Date())
+						.value("cksumValidationTime", new Date());
 			}
 			//8. then push the volume into cassandra
 			cassandraManager.execute(batchStmt);
