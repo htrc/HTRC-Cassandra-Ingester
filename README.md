@@ -44,7 +44,7 @@ VOLUME_TEXT_COLUMN_FAMILY = VolumeContents
 
 MARC-JSON-FILES-FOLDER=/hathitrustmnt/marc-ingester
 MARC-JSON-FILES=meta_pd_open_access.json,meta_pd_google.json,meta_ic.json
-MARC-COLUMN-FAMILY=marctest
+MARC-COLUMN-FAMILY=VolumeContents
 MARC-COLUMN-FAMILY-KEY=volumeid
 MARC-COLUMN=marc
 MARC-INGESTER-OUTFILE=marc-ingester-output.txt
