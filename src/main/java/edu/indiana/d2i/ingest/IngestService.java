@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 
 import edu.indiana.d2i.ingest.cassandra.CassandraAccessLevelUpdater;
 import edu.indiana.d2i.ingest.cassandra.CassandraIngester;
+import edu.indiana.d2i.ingest.cassandra.CassandraManager;
 import edu.indiana.d2i.ingest.cassandra.MarcProcessor;
 import edu.indiana.d2i.ingest.cassandra.CassandraPageTextIngester;
 import edu.indiana.d2i.ingest.util.Configuration;
@@ -33,5 +34,6 @@ public class IngestService {
 		Updater accessLevelUpdater = new CassandraAccessLevelUpdater();
 		accessLevelUpdater.update(volumesToIngest);
 		log.info("access level update ends");
+		CassandraManager.shutdown();
 	}
 }

@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
@@ -30,6 +31,7 @@ import edu.indiana.d2i.ingest.util.Tools;
 
 public class CassandraPageTextIngester extends Ingester{
 	private static Logger log = LogManager.getLogger(CassandraPageTextIngester.class);
+	private PrintWriter pwChecksumInfo;
 	private CassandraManager cassandraManager;
 	private String columnFamilyName;
 	
@@ -52,11 +54,16 @@ public class CassandraPageTextIngester extends Ingester{
 		    		+ "byteCount bigint, "
 		    		+ "characterCount int, "
 		    		+ "contents text, "
-		    		+ "checksum text, "
-		    		+ "checksumType text, "
+		    	//	+ "checksum text, "
+		    	//	+ "checksumType text, "
 		    		+ "pageNumberLabel text, "
 		    		+ "PRIMARY KEY (volumeID, sequence))";
 			cassandraManager.execute(createTableStr);
+		}
+		try {
+			pwChecksumInfo = new PrintWriter("failedChecksumVolIds.txt");
+		} catch (FileNotFoundException e) {
+			log.error("error creating printwriter for checksum verification", e.getMessage());
 		}
 	}
 	
@@ -128,17 +135,8 @@ public class CassandraPageTextIngester extends Ingester{
 						log.error("failed reading page contents for " + entryName + " of " + volumeId);
 						continue;
 					}
-					//2. verify byte count of this page
-					if(pageContents.length != pageRecord.getByteCount() ) {
-						log.warn("Actual byte count and byte count from METS mismatch for entry " + entryName + " for volume " + volumeId + ". Actual: " + pageContents.length + " from METS: " + pageRecord.getByteCount());
-						log.info("Recording actual byte count");
-						pageRecord.setByteCount(pageContents.length);
-						volumeByteCount += pageContents.length;
-					} else {
-						volumeByteCount += pageRecord.getByteCount();
-						log.info("verified page content for page " + entryFilename + " of " + volumeId);
-					}
-					//3. check against checksum of this page declared in METS
+					
+					//2. check against checksum of this page declared in METS
 					String checksum = pageRecord.getChecksum();
 					String checksumType = pageRecord.getChecksumType();
 					try {
@@ -148,6 +146,8 @@ public class CassandraPageTextIngester extends Ingester{
 									+ " from METS: " + checksum);
 							log.info("Recording actual checksum");
 							pageRecord.setChecksum(calculatedChecksum, checksumType);
+							pwChecksumInfo.println(volumeId); pwChecksumInfo.flush();
+							return volumeAdded; // directly return false if mismatch happens
 						} else {
 							log.info("verified checksum for page " + entryFilename + " of " + volumeId);
 						}
@@ -155,6 +155,17 @@ public class CassandraPageTextIngester extends Ingester{
                         log.error("NoSuchAlgorithmException for checksum algorithm " + checksumType);
                         log.error("Using checksum found in METS with a leap of faith");
                     }
+					
+					//3. verify byte count of this page
+					if(pageContents.length != pageRecord.getByteCount() ) {
+						log.warn("Actual byte count and byte count from METS mismatch for entry " + entryName + " for volume " + volumeId + ". Actual: " + pageContents.length + " from METS: " + pageRecord.getByteCount());
+						log.info("Recording actual byte count");
+						pageRecord.setByteCount(pageContents.length);
+						volumeByteCount += pageContents.length;
+					} else {
+						volumeByteCount += pageRecord.getByteCount();
+						log.info("verified page content for page " + entryFilename + " of " + volumeId);
+					}
 					
 					//4. get 8-digit sequence for this page
 					int order = pageRecord.getOrder();
@@ -176,8 +187,8 @@ public class CassandraPageTextIngester extends Ingester{
 							.value("characterCount",
 									pageRecord.getCharacterCount())
 							.value("contents", pageContentsString)
-							.value("checksum", pageRecord.getChecksum())
-							.value("checksumType", pageRecord.getChecksumType())
+						//	.value("checksum", pageRecord.getChecksum())
+						//	.value("checksumType", pageRecord.getChecksumType())
 							.value("pageNumberLabel", pageRecord.getLabel());
 					batchStmt.add(insertStmt);
 					if(i == 0) {
