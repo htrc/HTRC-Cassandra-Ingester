@@ -41,10 +41,14 @@ public class CassandraPageTextIngester extends Ingester{
 		if(! cassandraManager.checkTableExist(columnFamilyName)) {
 			String createTableStr = "CREATE TABLE " + columnFamilyName + " ("
 		    		+ "volumeID text, "
+					+ "idSource text STATIC, "  // mostly HT
+					+ "pid text STATIC, "       //reserved
 					+ "accessLevel int STATIC, "
 		    		//+ "language text static, "
 					+ "structMetadata text STATIC,"
-					+ "semanticMetadata text STATIC,"
+		    		+ "structMetadataType text STATIC, "  // mostly METS
+					+ "semanticMetadata text STATIC, "
+					+ "semanticMetadataType text STATIC,"  // mostly MARC
 					+ "lastModifiedTime timestamp STATIC,"
 				    + "cksumValidationTime timestamp STATIC,"
 				    + "volumezip blob STATIC,"
@@ -205,9 +209,11 @@ public class CassandraPageTextIngester extends Ingester{
 						.value("volumeByteCount", volumeByteCount)
 						.value("volumeCharacterCount", volumeCharacterCount)
 						.value("structMetadata", volumeRecord.getMETSContents())
+						.value("structMetadataType", "METS")
 						.value("volumezip", zipBinaryContent)
 						.value("lastModifiedTime", new Date())
-						.value("cksumValidationTime", new Date());
+						.value("cksumValidationTime", new Date())
+						.value("idSource", "Hathitrust");
 			}
 			//8. then push the volume into cassandra
 			cassandraManager.execute(batchStmt);

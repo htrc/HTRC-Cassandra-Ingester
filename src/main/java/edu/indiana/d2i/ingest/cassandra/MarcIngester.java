@@ -43,6 +43,7 @@ public class MarcIngester {
 			if (this.marcUpdatePrepStmt == null) {
 				Update.IfExists updVolMarc = QueryBuilder.update(this.marcColFamily)
 						.with(QueryBuilder.set(this.marcColumn, QueryBuilder.bindMarker()))
+						.and(QueryBuilder.set("semanticMetadataType", "MARC")) // hard code it there for marc ingester for now
 						.where(QueryBuilder.eq(this.marcColFamilyKey, QueryBuilder.bindMarker()))
 						.ifExists();
 				this.marcUpdatePrepStmt = csdConnector.prepare(updVolMarc.toString());
