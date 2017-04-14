@@ -11,4 +11,8 @@ public abstract class Ingester {
 	}
 	public abstract boolean ingestOne(String volumeId);
 	
+	public void close() {
+		
+	}
+	
 }

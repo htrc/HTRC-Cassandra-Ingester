@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import edu.indiana.d2i.ingest.Ingester;
+import edu.indiana.d2i.ingest.util.Configuration;
 
 public class CassandraIngester extends Ingester{
 	private static PrintWriter pw1;
@@ -13,8 +14,8 @@ public class CassandraIngester extends Ingester{
 	private List<Ingester> ingestersInOrder;
 	static {
 		try {
-			pw1 = new PrintWriter("success.txt");
-			pw2 = new PrintWriter("failure.txt");
+			pw1 = new PrintWriter(Configuration.getProperty("CASSANDRA_INGESTER_SUCCESS"));
+			pw2 = new PrintWriter(Configuration.getProperty("CASSANDRA_FAILURE_FAILURE"));
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}

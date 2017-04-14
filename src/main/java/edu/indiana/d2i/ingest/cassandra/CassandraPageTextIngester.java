@@ -42,7 +42,7 @@ public class CassandraPageTextIngester extends Ingester{
 			String createTableStr = "CREATE TABLE " + columnFamilyName + " ("
 		    		+ "volumeID text, "
 					+ "idSource text STATIC, "  // mostly HT
-					+ "pid text STATIC, "       //reserved
+					+ "persistentId text STATIC, "       //reserved
 					+ "accessLevel int STATIC, "
 		    		//+ "language text static, "
 					+ "structMetadata text STATIC,"

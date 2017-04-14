@@ -196,7 +196,7 @@ public class MarcProcessor {
 	}
 	
 	// extracts the volume id from the MARC record for a volume; see above for expected json, and field of volume id 
-	private String getVolumeIdFromMarc(JSONObject volMarc) {
+	public String getVolumeIdFromMarc(JSONObject volMarc) {
 		JSONArray fieldsArray = (JSONArray) volMarc.get(FIELDS_KEY); 
 		if (fieldsArray == null) {
 			logger.error("MARC_INGESTER: Unable to find \"{}\" element in MARC json: {}", FIELDS_KEY, volMarc);
