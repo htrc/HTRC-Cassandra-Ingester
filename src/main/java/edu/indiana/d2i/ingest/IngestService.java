@@ -10,6 +10,7 @@ import edu.indiana.d2i.ingest.cassandra.CassandraAccessLevelUpdater;
 import edu.indiana.d2i.ingest.cassandra.CassandraIngester;
 import edu.indiana.d2i.ingest.cassandra.CassandraManager;
 import edu.indiana.d2i.ingest.cassandra.MarcProcessor;
+import edu.indiana.d2i.ingest.redis.RedisClient;
 import edu.indiana.d2i.ingest.cassandra.CassandraPageTextIngester;
 import edu.indiana.d2i.ingest.solr.SolrMetadtaIngester;
 import edu.indiana.d2i.ingest.util.Configuration;
@@ -21,6 +22,8 @@ public class IngestService {
 		log.info("load volume ids to ingest...");
 		List<String> volumesToIngest = Tools.getVolumeIds(new File(
 				Configuration.getProperty("VOLUME_ID_LIST")));
+
+		RedisClient redisClient = null;
 		
 		if (Boolean.valueOf(Configuration.getProperty("PUSH_TO_CASSANDRA"))) {
 			CassandraIngester ingester = new CassandraIngester();
@@ -51,7 +54,10 @@ public class IngestService {
 			log.info("marc update ends");
 
 			log.info("update access level ...");
-			Updater accessLevelUpdater = new CassandraAccessLevelUpdater();
+			if (redisClient == null) {
+				redisClient = new RedisClient();
+			}												
+			Updater accessLevelUpdater = new CassandraAccessLevelUpdater(redisClient);
 			accessLevelUpdater.update(volumesToIngest);
 			log.info("access level update ends");
 		}

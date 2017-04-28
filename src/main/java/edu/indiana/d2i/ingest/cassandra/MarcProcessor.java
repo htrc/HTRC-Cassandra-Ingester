@@ -150,7 +150,7 @@ public class MarcProcessor {
 					} else if (volIdTester.test(volumeid)) {
 						updateOnTestSucc.accept(volumeid);
 						// logger.debug("MARC_INGESTER: Volume id {} found in file {}", volumeid, this.getFileName(marcJsonFilePath));
-						Boolean ingestRes = this.marcIngester.ingestVolumeMarc(volumeid, line);
+						Boolean ingestRes = this.marcIngester.ingest(volumeid, line);
 						if (! ingestRes) {
 							uningestedVolIds.add(volumeid);
 						}
