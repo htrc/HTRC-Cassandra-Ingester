@@ -68,8 +68,6 @@ public class RedisClient {
         			numHmgets++;
         		}
         		pipeline.sync();
-//        		batchRes.forEach(entry -> System.out.println(entry.getKey() + " -> " + entry.getValue().get()));
-//        		System.out.println("---------------------");
         		batchRes.forEach(entry -> res.add(new AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue().get())));
         	}
         	return res;

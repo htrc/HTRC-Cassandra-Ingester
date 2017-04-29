@@ -43,14 +43,6 @@ public class CassandraAccessLevelUpdater extends Updater {
 		return this.updateAccessLevel(volumeId, accessLevel);
 	}
 	
-	// temporary method used during tests
-	public boolean setToNull(String volumeId) {
-		// set the access level in Cassandra
-		boolean result = this.accessLevelIngester.ingest(volumeId, null);
-		logger.info("CassandraAccessLevelUpdater: volumeId = {}, accessLevel in redis = null, update to csd = {}", volumeId, result);
-		return result;
-	}
-	
 	// update the access level column for the given volume ids in Cassandra, after first obtaining the access levels of the volumes from Redis
 	// result: the list of volume ids for which the update of the access level column failed
 	@Override
