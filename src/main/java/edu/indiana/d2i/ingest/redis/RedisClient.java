@@ -44,6 +44,17 @@ public class RedisClient {
         }
 	}
 
+	// sets the value of the specified field in the hash at the given key in Redis
+	public boolean setHashFieldValue(String key, String fieldName, String fieldValue) {
+        try (Jedis jedis = this.jedisPool.getResource()) {
+        	long hsetResult = jedis.hset(key, fieldName, fieldValue);
+        	return true;
+        } catch (Exception e) {
+        	logger.error("Exception while trying to access redis: {}", e.getMessage(), e); 
+        	return false;
+        }
+	}
+	
 	// given a list of elements (e.g., volume id v), the name of a hash field in Redis, and a function to construct keys in Redis from the
 	// aforementioned elements (e.g., the Redis key for v may be volume:v:info), constructs the keys corresponding to the elements, and obtains 
 	// the values of the field in the hashes at the keys in Redis

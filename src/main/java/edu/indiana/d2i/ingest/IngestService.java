@@ -10,8 +10,9 @@ import edu.indiana.d2i.ingest.cassandra.CassandraAccessLevelUpdater;
 import edu.indiana.d2i.ingest.cassandra.CassandraIngester;
 import edu.indiana.d2i.ingest.cassandra.CassandraManager;
 import edu.indiana.d2i.ingest.cassandra.MarcProcessor;
+import edu.indiana.d2i.ingest.redis.RedisAvailStatusUpdater;
 import edu.indiana.d2i.ingest.redis.RedisClient;
-import edu.indiana.d2i.ingest.cassandra.CassandraPageTextIngester;
+import edu.indiana.d2i.ingest.cassandra.CassandraPageTextIngester;\
 import edu.indiana.d2i.ingest.solr.SolrMetadtaIngester;
 import edu.indiana.d2i.ingest.util.Configuration;
 import edu.indiana.d2i.ingest.util.Tools;
@@ -53,6 +54,8 @@ public class IngestService {
 			marcProcessor.process(volumesToIngest);
 			log.info("marc update ends");
 
+			// the following section is just a demonstration of how
+			// CassandraAccessLevelUpdater might be used
 			log.info("update access level ...");
 			if (redisClient == null) {
 				redisClient = new RedisClient();
@@ -60,6 +63,18 @@ public class IngestService {
 			Updater accessLevelUpdater = new CassandraAccessLevelUpdater(redisClient);
 			accessLevelUpdater.update(volumesToIngest);
 			log.info("access level update ends");
+
+			// the following section is just a demonstration of how
+			// RedisAvailStatusUpdater might be used
+			log.info("update availability status in redis ...");
+			// the same RedisClient instance is used by both
+			// CassandraAccessLevelUpdater and RedisAvailStatusUpdater
+			RedisAvailStatusUpdater updater = new RedisAvailStatusUpdater(redisClient);
+			for (String volumeId : volumesToIngest) {
+				updater.setAvailStatus(volumeId, true);
+			}
+			log.info("availability status update in redis ends");
+
 		}
 		CassandraManager.shutdown();
 	}
