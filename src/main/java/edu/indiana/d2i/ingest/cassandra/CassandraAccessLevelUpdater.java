@@ -36,6 +36,7 @@ public class CassandraAccessLevelUpdater extends Updater {
 	}
 
 	// update the access level column for the given volume id in Cassandra, after first obtaining the access level of the volume from Redis
+	@Override
 	public boolean update(String volumeId) {
 		// get the access level of the volume from redis
 		String accessLevel = redisClient.getHashFieldValue(RedisRightsUtils.volumeIdToRedisKey(volumeId), this.redisAccessLevelFieldName);
