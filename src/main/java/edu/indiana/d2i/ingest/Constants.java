@@ -20,7 +20,9 @@ public class Constants {
 	public static final String PK_REDIS_VOLUME_ID_KEY_PREFIX="REDIS-VOLUME-ID-KEY-PREFIX";
 	public static final String PK_REDIS_VOLUME_ID_KEY_SUFFIX="REDIS-VOLUME-ID-KEY-SUFFIX";
 	public static final String PK_REDIS_ACCESS_LEVEL_HASH_FIELD_NAME="REDIS-ACCESS-LEVEL-HASH-FIELD-NAME";
-	public static final String PK_REDIS_NUM_HMGETS_PER_PIPELINE="REDIS-NUM-HMGETS-PER-PIPELINE";
+	public static final String PK_REDIS_AVAIL_STATUS_HASH_FIELD_NAME="REDIS-AVAIL_STATUS-HASH-FIELD-NAME";
+	public static final String PK_REDIS_NUM_HGETS_PER_PIPELINE="REDIS-NUM-HGETS-PER-PIPELINE";
+	public static final String PK_REDIS_NUM_HSETS_PER_PIPELINE="REDIS-NUM-HSETS-PER-PIPELINE";
 
 	// default values
 	public static final String DEFAULT_VOLUME_TEXT_COLUMN_FAMILY = "VolumeContents";
@@ -37,7 +39,9 @@ public class Constants {
 	public static final String DEFAULT_REDIS_VOLUME_ID_KEY_PREFIX="volume:";
 	public static final String DEFAULT_REDIS_VOLUME_ID_KEY_SUFFIX=":info";
 	public static final String DEFAULT_REDIS_ACCESS_LEVEL_HASH_FIELD_NAME="access-level";
-	public static final String DEFAULT_REDIS_NUM_HMGETS_PER_PIPELINE="1000";
+	public static final String DEFAULT_REDIS_AVAIL_STATUS_HASH_FIELD_NAME="avail-status";
+	public static final String DEFAULT_REDIS_NUM_HGETS_PER_PIPELINE="1000";
+	public static final String DEFAULT_REDIS_NUM_HSETS_PER_PIPELINE="1000";
 	
 	// some constants to locate randomly distributed volume zip and mets files
 	public static final String ROOT_PATH = "/hathitrustmnt";
