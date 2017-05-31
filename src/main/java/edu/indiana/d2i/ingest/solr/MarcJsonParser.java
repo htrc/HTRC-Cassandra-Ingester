@@ -160,13 +160,23 @@ public class MarcJsonParser {
 		Stream.of(fieldObjects).map(fieldObj -> (JSONObject)fieldObj)
 		.forEach(fieldJson -> {
 			if(fieldJson.containsKey("974")) {
-				List<String> subfieldCodes = new LinkedList<String>();
-				subfieldCodes.add("u");
-				Set<String> results = getStringValue("974", subfieldCodes, fieldJson);
+				List<String> subfieldCodesId = new LinkedList<String>();
+				subfieldCodesId.add("u");
+				Set<String> idResults = getStringValue("974", subfieldCodesId, fieldJson);
 		//		System.out.println(results);
-				if(results != null && results.size()== 1) {
-					volume.setVolumeId(results.iterator().next());
+				if(idResults != null && idResults.size()== 1) {
+					volume.setVolumeId(idResults.iterator().next());
 				}
+				
+				List<String> subfieldCodesDate = new LinkedList<String>();
+				subfieldCodesDate.add("y");
+				Set<String> dateResults = getStringValue("974", subfieldCodesDate, fieldJson);
+				if(dateResults != null && dateResults.size() >0) {
+					for(String publishDate : dateResults) {
+						volume.addPublishDate(publishDate);
+					}
+				}
+				
 			} else if(fieldJson.containsKey("035")) {
 				List<String> subfieldCodes = new LinkedList<String>();
 				subfieldCodes.add("a");

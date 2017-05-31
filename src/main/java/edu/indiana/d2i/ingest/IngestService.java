@@ -35,7 +35,7 @@ public class IngestService {
 			// pass accessLevelUpdater as argument to CassandraPageTextIngester;
 			// call accessLevelUpdater.update(volumeId) after ingest of
 			// volumeId
-			ingester.addIngester(new CassandraPageTextIngester());
+			ingester.addIngester(new CassandraPageTextIngester(accessLevelUpdater));
 			log.info("page and zip ingest process starts");
 			ingester.ingest(volumesToIngest);
 			log.info("page and zip ingest process ends");
@@ -68,7 +68,10 @@ public class IngestService {
 				redisClient = new RedisClient();
 			}
 			RedisAvailStatusUpdater updater = new RedisAvailStatusUpdater(redisClient);
-			updater.setStatusToAvailable(volumesToIngest);
+			
+			List<String> cassandraIngestedVolumes = Tools.getVolumeIds(new File(
+					Configuration.getProperty("CASSANDRA_INGESTER_SUCCESS")));
+			updater.setStatusToAvailable(cassandraIngestedVolumes);
 			
 			// use the following for volumes deleted from Cassandra
 			// updater.setStatusToUnavailable(volumesToDelete);

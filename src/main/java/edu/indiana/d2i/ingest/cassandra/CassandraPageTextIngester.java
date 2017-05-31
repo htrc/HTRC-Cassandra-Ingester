@@ -24,6 +24,7 @@ import com.datastax.driver.core.querybuilder.QueryBuilder;
 
 import edu.indiana.d2i.ingest.Constants;
 import edu.indiana.d2i.ingest.Ingester;
+import edu.indiana.d2i.ingest.Updater;
 import edu.indiana.d2i.ingest.util.Configuration;
 import edu.indiana.d2i.ingest.util.METSParser.VolumeRecord;
 import edu.indiana.d2i.ingest.util.METSParser.VolumeRecord.PageRecord;
@@ -34,6 +35,12 @@ public class CassandraPageTextIngester extends Ingester{
 	private PrintWriter pwChecksumInfo;
 	private CassandraManager cassandraManager;
 	private String columnFamilyName;
+	private Updater accessLevelUpdater;
+	
+	public CassandraPageTextIngester(Updater accessLevelUpdater) {
+		this();
+		this.accessLevelUpdater = accessLevelUpdater;
+	}
 	
 	public CassandraPageTextIngester() {
 		cassandraManager = CassandraManager.getInstance();
@@ -106,6 +113,12 @@ public class CassandraPageTextIngester extends Ingester{
 		}
 		if(volumeAdded) {
 			log.info("text ingested successfully " + volumeId);
+			boolean accessLevelUpdated = accessLevelUpdater.update(volumeId);
+			if(accessLevelUpdated) {
+				log.info("access level updated successfully " + volumeId);
+			} else {
+				log.error("access level update failed " + volumeId);
+			}
 		} else {
 			log.info("text ingest failed " + volumeId);
 		}
