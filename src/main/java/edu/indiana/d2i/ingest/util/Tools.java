@@ -62,7 +62,7 @@ public class Tools {
 		
 		String[] parts = volID.split("\\.", 2); // parts[0] is the abbreviation of schools, part[1] is the id part
 		String cleanIdPart = pt.cleanId(parts[1]);
-		
+	//	System.out.println(cleanIdPart);
 		basePathBuilder.append(parts[0]).append('/').append("pairtree_root");
 		return pt.mapToPPath(basePathBuilder.toString(), parts[1], cleanIdPart);
 	}
@@ -104,7 +104,7 @@ public class Tools {
 	 */
 	public static File getFileFromPairtree(String relativePairtreePath, String fileName) {
 		// for each vm-named directory, see if this file is under it
-		for(HtrcVM vm : HtrcVM.values()){
+		/*for(HtrcVM vm : HtrcVM.values()){
 			StringBuilder absolutePathBuilder = new StringBuilder();
 			absolutePathBuilder.append(Constants.ROOT_PATH).append(Constants.SEPERATOR)
 			.append(vm).append(Constants.SEPERATOR).append(Constants.TO_PAIRTREE_PATH)
@@ -116,6 +116,15 @@ public class Tools {
 				return file;
 			}
 			//System.out.println(absolutePathBuilder.toString());
+		}*/
+		StringBuilder absolutePathBuilder = new StringBuilder();
+		absolutePathBuilder.append(Constants.ROOT_PATH).append(Constants.SEPERATOR)
+		.append(relativePairtreePath).append(Constants.SEPERATOR)
+		.append(fileName); 
+//		System.out.println("!!!!!!!!!!!!!!!!"+absolutePathBuilder.toString());
+		File file = new File(absolutePathBuilder.toString());
+		if(file.exists()){ // if exist, return this file instantly
+			return file;
 		}
 		return null;
 	}
@@ -202,11 +211,22 @@ public class Tools {
 		return sequences;
 	}
 	
+	public static void generateVolumeListFile(String fileName, List<String> idList) throws FileNotFoundException {
+		PrintWriter pw = new PrintWriter(fileName);
+		for(String id : idList) {
+			pw.println(id);
+		}
+		pw.flush();
+		pw.close();
+	}
+	
 	public static void main(String[] args) {
-		String volumeId = "loc.ark:/13960/t7kp9549h";
+		String volumeId = "aeu.ark:/13960/t00008f0x";
 		
 		String pairtreePath = Tools.getPairtreePath(volumeId);
 		System.out.println(pairtreePath);
+		
+		getFileFromPairtree(pairtreePath, "xyz.zip");
 	}
 
 	/**

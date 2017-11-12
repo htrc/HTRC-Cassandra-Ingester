@@ -44,7 +44,7 @@ public class Constants {
 	public static final String DEFAULT_REDIS_NUM_HSETS_PER_PIPELINE="1000";
 	
 	// some constants to locate randomly distributed volume zip and mets files
-	public static final String ROOT_PATH = "/hathitrustmnt";
+	public static final String ROOT_PATH = "/N/dc2/projects/htrc/data/ht_text";
 	public static final String TO_PAIRTREE_PATH = "ingester-data/full_set";
 	public static final String PAIRTREE_ROOT = "pairtree_root";
 	public static final char SEPERATOR = File.separatorChar;

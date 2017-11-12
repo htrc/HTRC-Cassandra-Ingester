@@ -1,6 +1,7 @@
 package edu.indiana.d2i.ingest;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -28,14 +29,12 @@ public class IngestService {
 		
 		if (Boolean.valueOf(Configuration.getProperty("PUSH_TO_CASSANDRA"))) {
 			CassandraIngester ingester = new CassandraIngester();
-			if (redisClient == null) {
-				redisClient = new RedisClient();
-			}
-			Updater accessLevelUpdater = new CassandraAccessLevelUpdater(redisClient);
+			
 			// pass accessLevelUpdater as argument to CassandraPageTextIngester;
 			// call accessLevelUpdater.update(volumeId) after ingest of
 			// volumeId
-			ingester.addIngester(new CassandraPageTextIngester(accessLevelUpdater));
+		//	ingester.addIngester(new CassandraPageTextIngester(accessLevelUpdater));
+			ingester.addIngester(new CassandraPageTextIngester());
 			log.info("page and zip ingest process starts");
 			ingester.ingest(volumesToIngest);
 			log.info("page and zip ingest process ends");
@@ -60,6 +59,23 @@ public class IngestService {
 			MarcProcessor marcProcessor = new MarcProcessor();
 			marcProcessor.process(volumesToIngest);
 			log.info("marc update ends");
+		}
+		
+		if(Boolean.valueOf(Configuration.getProperty("UPDATE_ACCESS_LEVEL_TO_CASSANDRA"))) {
+			log.info("update access level...");
+			if (redisClient == null) {
+				redisClient = new RedisClient();
+			}
+			Updater accessLevelUpdater = new CassandraAccessLevelUpdater(redisClient);
+			List<String> cassandraIngestedVolumes = Tools.getVolumeIds(new File(
+					Configuration.getProperty("CASSANDRA_INGESTER_SUCCESS")));
+			List<String> updatSuccessList = accessLevelUpdater.update(cassandraIngestedVolumes);
+			try {
+				Tools.generateVolumeListFile(Configuration.getProperty("ACCESS_LEVEL_UPDATE_FAILURE_LIST"), updatSuccessList);
+			} catch (FileNotFoundException e) {
+				log.error("access level update output file exception", e);
+			}
+			log.info("access level update ends ...");
 		}
 
 		if (Boolean.valueOf(Configuration.getProperty("UPDATE_AVAIL_STATUS_IN_REDIS"))) {

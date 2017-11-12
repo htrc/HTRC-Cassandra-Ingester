@@ -10,7 +10,6 @@ import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
-import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -18,13 +17,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.datastax.driver.core.BatchStatement;
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.exceptions.WriteFailureException;
+import com.datastax.driver.core.exceptions.WriteTimeoutException;
 import com.datastax.driver.core.querybuilder.Insert;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 
 import edu.indiana.d2i.ingest.Constants;
 import edu.indiana.d2i.ingest.Ingester;
-import edu.indiana.d2i.ingest.Updater;
 import edu.indiana.d2i.ingest.util.Configuration;
 import edu.indiana.d2i.ingest.util.METSParser.VolumeRecord;
 import edu.indiana.d2i.ingest.util.METSParser.VolumeRecord.PageRecord;
@@ -33,14 +33,15 @@ import edu.indiana.d2i.ingest.util.Tools;
 public class CassandraPageTextIngester extends Ingester{
 	private static Logger log = LogManager.getLogger(CassandraPageTextIngester.class);
 	private PrintWriter pwChecksumInfo;
+	private PrintWriter pwEmptyZip;
 	private CassandraManager cassandraManager;
 	private String columnFamilyName;
-	private Updater accessLevelUpdater;
+//	private Updater accessLevelUpdater;
 	
-	public CassandraPageTextIngester(Updater accessLevelUpdater) {
+	/*public CassandraPageTextIngester(Updater accessLevelUpdater) {
 		this();
-		this.accessLevelUpdater = accessLevelUpdater;
-	}
+	//	this.accessLevelUpdater = accessLevelUpdater;
+	}*/
 	
 	public CassandraPageTextIngester() {
 		cassandraManager = CassandraManager.getInstance();
@@ -73,6 +74,7 @@ public class CassandraPageTextIngester extends Ingester{
 		}
 		try {
 			pwChecksumInfo = new PrintWriter("failedChecksumVolIds.txt");
+			pwEmptyZip = new PrintWriter("volumesWithEmptyZip.txt");
 		} catch (FileNotFoundException e) {
 			log.error("error creating printwriter for checksum verification", e.getMessage());
 		}
@@ -87,7 +89,7 @@ public class CassandraPageTextIngester extends Ingester{
 
 	public boolean ingestOne(String volumeId) {
 		String cleanId = Tools.cleanId(volumeId);
-		String pairtreePath = Tools.getPairtreePath(cleanId);
+		String pairtreePath = Tools.getPairtreePath(volumeId);
 		
 		String cleanIdPart = cleanId.split("\\.", 2)[1];
 		String zipFileName = cleanIdPart  + Constants.VOLUME_ZIP_SUFFIX; // e.g.: ark+=13960=t02z18p54.zip
@@ -113,12 +115,12 @@ public class CassandraPageTextIngester extends Ingester{
 		}
 		if(volumeAdded) {
 			log.info("text ingested successfully " + volumeId);
-			boolean accessLevelUpdated = accessLevelUpdater.update(volumeId);
+		/*	boolean accessLevelUpdated = accessLevelUpdater.update(volumeId);
 			if(accessLevelUpdated) {
 				log.info("access level updated successfully " + volumeId);
 			} else {
 				log.error("access level update failed " + volumeId);
-			}
+			}*/
 		} else {
 			log.info("text ingest failed " + volumeId);
 		}
@@ -163,7 +165,7 @@ public class CassandraPageTextIngester extends Ingester{
 									+ " from METS: " + checksum);
 							log.info("Recording actual checksum");
 							pageRecord.setChecksum(calculatedChecksum, checksumType);
-							pwChecksumInfo.println(volumeId); pwChecksumInfo.flush();
+							pwChecksumInfo.println(volumeId + "#" + entryFilename); pwChecksumInfo.flush();
 							return volumeAdded; // directly return false if mismatch happens
 						} else {
 							log.info("verified checksum for page " + entryFilename + " of " + volumeId);
@@ -227,13 +229,29 @@ public class CassandraPageTextIngester extends Ingester{
 						.value("lastModifiedTime", new Date())
 						.value("cksumValidationTime", new Date())
 						.value("idSource", "Hathitrust");
+			} else {
+				log.error("Cannot get entry from ZIP (zip file is probably empty) " + volumeZipFile.getAbsolutePath());
+				pwEmptyZip.println(volumeId); pwEmptyZip.flush();
+				return false;
 			}
 			//8. then push the volume into cassandra
+			batchStmt.setConsistencyLevel(ConsistencyLevel.ONE);
 			cassandraManager.execute(batchStmt);
 		} catch (IOException e) {
 			log.error("IOException getting entry from ZIP " + volumeZipFile.getAbsolutePath(), e);
 			return false;
 		} catch (WriteFailureException e) {
+			log.error("write failure for " + volumeId + ": " + e.getMessage());
+			log.error("write failure for " + volumeId + ": " + e.getFailures() + " failures");
+			log.error("write failure for " + volumeId + ": " + e.getAddress() + " coordinator");
+			log.error("write failure for " + volumeId + ": " + e.getLocalizedMessage() + " local message");
+			log.error("write failure for " + volumeId + ": " + e.getReceivedAcknowledgements() + " acks received");
+			log.error("write failure for " + volumeId + ": " + e.getRequiredAcknowledgements() + " acks required");
+			log.error("write failure for " + volumeId + ": " + e.getHost() + " host");
+			log.error("write failure for " + volumeId + ": " + e.getConsistencyLevel() + " consistency");
+			log.error("write failure for " + volumeId + ": " + e.getWriteType() + " write type");
+			return false;
+		} catch (WriteTimeoutException e) {
 			log.error("write failure for " + volumeId + ": " + e.getMessage());
 			return false;
 		}
@@ -311,5 +329,12 @@ public class CassandraPageTextIngester extends Ingester{
         }
         sequenceBuilder.append(orderString);
         return sequenceBuilder.toString();
+    }
+    
+    public void close() {
+    	pwEmptyZip.flush();
+    	pwEmptyZip.close();
+    	pwChecksumInfo.flush();
+    	pwChecksumInfo.close();
     }
 }
