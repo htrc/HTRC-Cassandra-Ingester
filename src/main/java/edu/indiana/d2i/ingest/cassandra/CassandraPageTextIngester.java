@@ -18,6 +18,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.datastax.driver.core.BatchStatement;
 import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.exceptions.OperationTimedOutException;
 import com.datastax.driver.core.exceptions.WriteFailureException;
 import com.datastax.driver.core.exceptions.WriteTimeoutException;
 import com.datastax.driver.core.querybuilder.Insert;
@@ -253,6 +254,9 @@ public class CassandraPageTextIngester extends Ingester{
 			return false;
 		} catch (WriteTimeoutException e) {
 			log.error("write failure for " + volumeId + ": " + e.getMessage());
+			return false;
+		} catch (OperationTimedOutException e) {
+			log.error("operation timeout for " + volumeId + ": " + e.getMessage());
 			return false;
 		}
 		
