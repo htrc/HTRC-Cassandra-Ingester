@@ -89,6 +89,8 @@ public class CassandraPageTextIngester extends Ingester{
 	}*/
 
 	public boolean ingestOne(String volumeId) {
+		if(volumeId == null || volumeId.equals("")) return false;
+		
 		String cleanId = Tools.cleanId(volumeId);
 		String pairtreePath = Tools.getPairtreePath(volumeId);
 		
@@ -110,9 +112,21 @@ public class CassandraPageTextIngester extends Ingester{
 		VolumeRecord volumeRecord = Tools.getVolumeRecord(volumeId, volumeMetsFile);
 		boolean volumeAdded = false;
 		try {
-			volumeAdded = updatePages(volumeZipFile, volumeRecord);
+			int maxAttempts = 3;
+			while(maxAttempts > 0) {
+				volumeAdded = updatePages(volumeZipFile, volumeRecord);
+				if(!volumeAdded) {
+					maxAttempts --;
+					Thread.sleep(5000);
+				} else {
+					break;
+				}
+			}
+			
 		} catch (FileNotFoundException e) {
 			log.error("file not found" + e.getMessage());
+		} catch (InterruptedException e) {
+			log.error("ingest trhead interrupted" + e.getMessage());
 		}
 		if(volumeAdded) {
 			log.info("text ingested successfully " + volumeId);
@@ -232,7 +246,11 @@ public class CassandraPageTextIngester extends Ingester{
 						.value("idSource", "Hathitrust");
 			} else {
 				log.error("Cannot get entry from ZIP (zip file is probably empty) " + volumeZipFile.getAbsolutePath());
-				pwEmptyZip.println(volumeId); pwEmptyZip.flush();
+				if(!volumeRecord.getPageFilenameSet().isEmpty()) {
+					pwEmptyZip.println(volumeId + " METS mismatch"); pwEmptyZip.flush();
+				} else {
+					pwEmptyZip.println(volumeId + " consistent with METS"); pwEmptyZip.flush();
+				}
 				return false;
 			}
 			//8. then push the volume into cassandra

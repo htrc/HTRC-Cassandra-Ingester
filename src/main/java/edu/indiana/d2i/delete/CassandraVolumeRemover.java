@@ -10,6 +10,8 @@ import com.datastax.driver.core.querybuilder.QueryBuilder;
 
 import edu.indiana.d2i.ingest.Constants;
 import edu.indiana.d2i.ingest.cassandra.CassandraManager;
+import edu.indiana.d2i.ingest.redis.RedisAvailStatusUpdater;
+import edu.indiana.d2i.ingest.redis.RedisClient;
 import edu.indiana.d2i.ingest.util.Configuration;
 import edu.indiana.d2i.ingest.util.Tools;
 
@@ -35,6 +37,10 @@ public class CassandraVolumeRemover {
 		}
 	//	pw.flush(); pw.close();	
 		CassandraManager.shutdown();
+		
+		RedisClient redisClient = new RedisClient();
+		RedisAvailStatusUpdater updater = new RedisAvailStatusUpdater(redisClient);
+		updater.setStatusToUnavailable(volumeIdsToRemove);
 	}
 
 }
