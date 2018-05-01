@@ -33,6 +33,8 @@ public class CassandraScanner {
 			pw.println(id); pw.flush();
 		}
 		pw.flush(); pw.close();
+		System.out.println("scan finished.");
+		cassandraManager.shutdown();
 	}
 
 }
