@@ -179,7 +179,7 @@ public class CassandraPageTextIngester extends Ingester{
 							log.warn("Actual checksum and checksum from METS mismatch for entry " + entryName + " for volume: " + volumeId + ". Actual: " + calculatedChecksum
 									+ " from METS: " + checksum);
 							log.info("Recording actual checksum");
-							pageRecord.setChecksum(calculatedChecksum, checksumType);
+							// pageRecord.setChecksum(calculatedChecksum, checksumType);
 							pwChecksumInfo.println(volumeId + "#" + entryFilename); pwChecksumInfo.flush();
 							return volumeAdded; // directly return false if mismatch happens
 						} else {
