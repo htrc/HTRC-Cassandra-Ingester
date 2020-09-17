@@ -10,6 +10,8 @@ import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -154,6 +156,8 @@ public class CassandraPageTextIngester extends Ingester{
 			Insert firstPageInsert = null;
 			ZipInputStream zis = new ZipInputStream(new FileInputStream(volumeZipFile));
 			ZipEntry zipEntry = null;
+			// keep track of the pages in the ZIP file, to compare later against the pages in the METS file
+			Set<String> pagesInZipFile = new HashSet<String>();
 			while((zipEntry = zis.getNextEntry()) != null) {
 				String entryName = zipEntry.getName();
 				String entryFilename = extractEntryFilename(entryName);
@@ -224,6 +228,8 @@ public class CassandraPageTextIngester extends Ingester{
 						//	.value("checksum", pageRecord.getChecksum())
 						//	.value("checksumType", pageRecord.getChecksumType())
 							.value("pageNumberLabel", pageRecord.getLabel());
+					
+					pagesInZipFile.add(entryFilename);	
 					batchStmt.add(insertStmt);
 					if(i == 0) {
 						firstPageInsert = insertStmt;
@@ -253,6 +259,13 @@ public class CassandraPageTextIngester extends Ingester{
 				}
 				return false;
 			}
+			
+			// check if the pages listed in the METS file match the pages found in the ZIP file
+			if (!pagesInZipFile.equals(volumeRecord.getPageFilenameSet())) {
+				log.error("Pages listed in METS file do not match pages in ZIP file: volumeId = {}", volumeId);
+				return false;
+			}
+			
 			//8. then push the volume into cassandra
 			batchStmt.setConsistencyLevel(ConsistencyLevel.ONE);
 			cassandraManager.execute(batchStmt);
