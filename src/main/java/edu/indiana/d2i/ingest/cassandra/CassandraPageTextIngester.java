@@ -46,6 +46,17 @@ public class CassandraPageTextIngester extends Ingester{
 	//	this.accessLevelUpdater = accessLevelUpdater;
 	}*/
 	
+    // results of the updatePages method
+	enum UpdatePagesResult {
+		SUCCESS,
+		PAGE_CHECKSUM_MISMATCH_ERROR,
+		EMPTY_ZIP_ERROR,
+		METS_ZIP_MISMATCHED_PAGES_ERROR,
+		VOLUME_ZIP_ERROR,
+		CASSANSDRA_WRITE_ERROR,
+		OTHER;
+	}
+	
 	public CassandraPageTextIngester() {
 		cassandraManager = CassandraManager.getInstance();
 		columnFamilyName = Configuration.getProperty(Constants.PK_VOLUME_TEXT_COLUMN_FAMILY);
@@ -112,15 +123,17 @@ public class CassandraPageTextIngester extends Ingester{
 		}
 		
 		VolumeRecord volumeRecord = Tools.getVolumeRecord(volumeId, volumeMetsFile);
-		boolean volumeAdded = false;
+		UpdatePagesResult result = UpdatePagesResult.OTHER;
 		try {
 			int maxAttempts = 3;
 			while(maxAttempts > 0) {
-				volumeAdded = updatePages(volumeZipFile, volumeRecord);
-				if(!volumeAdded) {
+				result = updatePages(volumeZipFile, volumeRecord);
+				if (result == UpdatePagesResult.CASSANSDRA_WRITE_ERROR) {
+					// retry the ingestion only if there has been an error while trying to write to Cassandra
 					maxAttempts --;
 					Thread.sleep(5000);
 				} else {
+					// if the ingestion is a success, or if the error is something other than a write error, then do not retry the ingestion
 					break;
 				}
 			}
@@ -130,7 +143,7 @@ public class CassandraPageTextIngester extends Ingester{
 		} catch (InterruptedException e) {
 			log.error("ingest trhead interrupted" + e.getMessage());
 		}
-		if(volumeAdded) {
+		if (result == UpdatePagesResult.SUCCESS) {
 			log.info("text ingested successfully " + volumeId);
 		/*	boolean accessLevelUpdated = accessLevelUpdater.update(volumeId);
 			if(accessLevelUpdated) {
@@ -138,15 +151,17 @@ public class CassandraPageTextIngester extends Ingester{
 			} else {
 				log.error("access level update failed " + volumeId);
 			}*/
+			return true;
 		} else {
 			log.info("text ingest failed " + volumeId);
+			return false;
 		}
-		return volumeAdded;
+		// return volumeAdded;
 	}
 
-	private boolean updatePages(File volumeZipFile, VolumeRecord volumeRecord) throws FileNotFoundException {
+	private UpdatePagesResult updatePages(File volumeZipFile, VolumeRecord volumeRecord) throws FileNotFoundException {
 		String volumeId = volumeRecord.getVolumeID();
-		boolean volumeAdded = false;
+		// boolean volumeAdded = false;
 		BatchStatement batchStmt = new BatchStatement(); // a batch to insert all pages of this volume
 		
 		long volumeByteCount = 0;
@@ -185,7 +200,7 @@ public class CassandraPageTextIngester extends Ingester{
 							log.info("Recording actual checksum");
 							// pageRecord.setChecksum(calculatedChecksum, checksumType);
 							pwChecksumInfo.println(volumeId + "#" + entryFilename); pwChecksumInfo.flush();
-							return volumeAdded; // directly return false if mismatch happens
+							return UpdatePagesResult.PAGE_CHECKSUM_MISMATCH_ERROR; // directly return false if mismatch happens
 						} else {
 							log.info("verified checksum for page " + entryFilename + " of " + volumeId);
 						}
@@ -257,13 +272,13 @@ public class CassandraPageTextIngester extends Ingester{
 				} else {
 					pwEmptyZip.println(volumeId + " consistent with METS"); pwEmptyZip.flush();
 				}
-				return false;
+				return UpdatePagesResult.EMPTY_ZIP_ERROR;
 			}
 			
 			// check if the pages listed in the METS file match the pages found in the ZIP file
 			if (!pagesInZipFile.equals(volumeRecord.getPageFilenameSet())) {
 				log.error("Pages listed in METS file do not match pages in ZIP file: volumeId = {}", volumeId);
-				return false;
+				return UpdatePagesResult.METS_ZIP_MISMATCHED_PAGES_ERROR;
 			}
 			
 			//8. then push the volume into cassandra
@@ -271,7 +286,7 @@ public class CassandraPageTextIngester extends Ingester{
 			cassandraManager.execute(batchStmt);
 		} catch (IOException e) {
 			log.error("IOException getting entry from ZIP " + volumeZipFile.getAbsolutePath(), e);
-			return false;
+			return UpdatePagesResult.VOLUME_ZIP_ERROR;
 		} catch (WriteFailureException e) {
 			log.error("write failure for " + volumeId + ": " + e.getMessage());
 			log.error("write failure for " + volumeId + ": " + e.getFailures() + " failures");
@@ -282,17 +297,17 @@ public class CassandraPageTextIngester extends Ingester{
 			log.error("write failure for " + volumeId + ": " + e.getHost() + " host");
 			log.error("write failure for " + volumeId + ": " + e.getConsistencyLevel() + " consistency");
 			log.error("write failure for " + volumeId + ": " + e.getWriteType() + " write type");
-			return false;
+			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
 		} catch (WriteTimeoutException e) {
 			log.error("write failure for " + volumeId + ": " + e.getMessage());
-			return false;
+			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
 		} catch (OperationTimedOutException e) {
 			log.error("operation timeout for " + volumeId + ": " + e.getMessage());
-			return false;
+			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
 		}
 		
-		volumeAdded = true;
-		return volumeAdded;
+		// volumeAdded = true;
+		return UpdatePagesResult.SUCCESS;
 	}
 
 	private ByteBuffer getByteBuffer(File file) {
