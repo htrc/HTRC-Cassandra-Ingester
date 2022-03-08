@@ -5,10 +5,16 @@ import java.util.Date;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
-import com.datastax.driver.core.querybuilder.Update;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.querybuilder.BuildableQuery;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+
+//import com.datastax.driver.core.PreparedStatement;
+//import com.datastax.driver.core.ResultSet;
+//import com.datastax.driver.core.querybuilder.QueryBuilder;
+//import com.datastax.driver.core.querybuilder.Update;
+//import com.datastax.oss.driver.api.querybuilder.BuildableQuery;
 
 import edu.indiana.d2i.ingest.Constants;
 import edu.indiana.d2i.ingest.util.Configuration;
@@ -44,11 +50,18 @@ public class MarcIngester extends ColumnIngester<String> {
 	public boolean ingest(String volumeId, String marc) {
 		try {
 			if (this.marcUpdatePrepStmt == null) {
-				Update.IfExists updVolMarc = QueryBuilder.update(this.volTextColFamily)
+				/*Update.IfExists updVolMarc = QueryBuilder.update(this.volTextColFamily)
 						.with(QueryBuilder.set(this.marcColumn, QueryBuilder.bindMarker()))
 						.and(QueryBuilder.set("semanticMetadataType", "MARC")) // hard code it there for marc ingester for now
 						.and(QueryBuilder.set(this.lastModTimeColName, QueryBuilder.bindMarker()))
 						.where(QueryBuilder.eq(this.volTextColFamilyKey, QueryBuilder.bindMarker()))
+						.ifExists();*/			
+				BuildableQuery updVolMarc = QueryBuilder.update(this.volTextColFamily)
+						.setColumn(this.marcColumn, QueryBuilder.bindMarker())
+						.setColumn("semanticMetadataType", QueryBuilder.literal("MARC"))
+						.setColumn(this.lastModTimeColName, QueryBuilder.bindMarker())
+						.whereColumn(this.volTextColFamilyKey)
+						.isEqualTo(QueryBuilder.bindMarker())
 						.ifExists();
 				this.marcUpdatePrepStmt = csdConnector.prepare(updVolMarc.toString());
 			}

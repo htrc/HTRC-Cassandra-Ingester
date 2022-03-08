@@ -5,10 +5,16 @@ import java.util.Date;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
-import com.datastax.driver.core.querybuilder.Update;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.querybuilder.BuildableQuery;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.update.Update;
+
+//import com.datastax.driver.core.PreparedStatement;
+//import com.datastax.driver.core.ResultSet;
+//import com.datastax.driver.core.querybuilder.QueryBuilder;
+//import com.datastax.driver.core.querybuilder.Update;
 
 import edu.indiana.d2i.ingest.Constants;
 import edu.indiana.d2i.ingest.util.Configuration;
@@ -36,10 +42,11 @@ public class SimpleColumnIngester<T> extends ColumnIngester<T> {
 	public boolean ingest(String volumeId, T colValue) {
 		try {
 			if (this.colUpdatePrepStmt == null) {
-				Update.IfExists updColumn = QueryBuilder.update(this.volTextColFamily)
-						.with(QueryBuilder.set(this.colName, QueryBuilder.bindMarker()))
-						.and(QueryBuilder.set(this.lastModTimeColName, QueryBuilder.bindMarker()))
-						.where(QueryBuilder.eq(this.volTextColFamilyKey, QueryBuilder.bindMarker()))
+				BuildableQuery updColumn = QueryBuilder.update(this.volTextColFamily)
+						.setColumn(this.colName, QueryBuilder.bindMarker())
+						.setColumn(this.lastModTimeColName, QueryBuilder.bindMarker())
+						.whereColumn(this.volTextColFamilyKey)
+						.isEqualTo(QueryBuilder.bindMarker())
 						.ifExists();
 				this.colUpdatePrepStmt = csdConnector.prepare(updColumn.toString());
 			}

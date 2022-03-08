@@ -9,6 +9,8 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -18,13 +20,28 @@ import java.util.zip.ZipInputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.datastax.driver.core.BatchStatement;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.exceptions.OperationTimedOutException;
-import com.datastax.driver.core.exceptions.WriteFailureException;
-import com.datastax.driver.core.exceptions.WriteTimeoutException;
-import com.datastax.driver.core.querybuilder.Insert;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
+import com.datastax.oss.driver.api.core.DriverTimeoutException;
+
+//import com.datastax.driver.core.BatchStatement;
+//import com.datastax.driver.core.ConsistencyLevel;
+//import com.datastax.driver.core.exceptions.OperationTimedOutException;
+//import com.datastax.driver.core.exceptions.WriteFailureException;
+//import com.datastax.driver.core.exceptions.WriteTimeoutException;
+//import com.datastax.driver.core.querybuilder.Insert;
+//import com.datastax.driver.core.querybuilder.QueryBuilder;
+
+import com.datastax.oss.driver.api.core.cql.BatchStatement;
+import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
+import com.datastax.oss.driver.api.core.cql.BatchType;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.servererrors.WriteFailureException;
+import com.datastax.oss.driver.api.core.servererrors.WriteTimeoutException;
+import com.datastax.oss.driver.api.querybuilder.BuildableQuery;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.insert.Insert;
 
 import edu.indiana.d2i.ingest.Constants;
 import edu.indiana.d2i.ingest.Ingester;
@@ -46,15 +63,27 @@ public class CassandraPageTextIngester extends Ingester{
 	//	this.accessLevelUpdater = accessLevelUpdater;
 	}*/
 	
+	// results of the updatePages method
+	enum UpdatePagesResult {
+		SUCCESS,
+		PAGE_CHECKSUM_MISMATCH_ERROR,
+		EMPTY_ZIP_ERROR,
+		METS_ZIP_MISMATCHED_PAGES_ERROR,
+		VOLUME_ZIP_ERROR,
+		CASSANSDRA_WRITE_ERROR,
+		OTHER;
+	}
+	
 	public CassandraPageTextIngester() {
 		cassandraManager = CassandraManager.getInstance();
 		columnFamilyName = Configuration.getProperty(Constants.PK_VOLUME_TEXT_COLUMN_FAMILY);
 		if(! cassandraManager.checkTableExist(columnFamilyName)) {
+			System.out.println("Table " + columnFamilyName + "does not exist; creating table");
 			String createTableStr = "CREATE TABLE " + columnFamilyName + " ("
 		    		+ "volumeID text, "
-					+ "idSource text STATIC, "  // mostly HT
-					+ "persistentId text STATIC, "       //reserved
-					+ "accessLevel int STATIC, "
+//					+ "idSource text STATIC, "  // mostly HT
+//					+ "persistentId text STATIC, "       //reserved
+//					+ "accessLevel int STATIC, "
 		    		//+ "language text static, "
 					+ "structMetadata text STATIC,"
 		    		+ "structMetadataType text STATIC, "  // mostly METS
@@ -62,11 +91,10 @@ public class CassandraPageTextIngester extends Ingester{
 					+ "semanticMetadataType text STATIC,"  // mostly MARC
 					+ "lastModifiedTime timestamp STATIC,"
 				    + "cksumValidationTime timestamp STATIC,"
-				    + "volumezip blob STATIC,"
+//				    + "volumezip blob STATIC,"
 		    		+ "volumeByteCount bigint STATIC, "
 					+ "volumeCharacterCount int STATIC, "
 		    		+ "sequence text, "
-		    		+ "byteCount bigint, "
 		    		+ "characterCount int, "
 		    		+ "contents text, "
 		    	//	+ "checksum text, "
@@ -112,15 +140,17 @@ public class CassandraPageTextIngester extends Ingester{
 		}
 		
 		VolumeRecord volumeRecord = Tools.getVolumeRecord(volumeId, volumeMetsFile);
-		boolean volumeAdded = false;
+		UpdatePagesResult result = UpdatePagesResult.OTHER;
 		try {
 			int maxAttempts = 3;
 			while(maxAttempts > 0) {
-				volumeAdded = updatePages(volumeZipFile, volumeRecord);
-				if(!volumeAdded) {
+				result = updatePages(volumeZipFile, volumeRecord);
+				if (result == UpdatePagesResult.CASSANSDRA_WRITE_ERROR) {
+					// retry the ingestion only if there has been an error while trying to write to Cassandra
 					maxAttempts --;
 					Thread.sleep(5000);
 				} else {
+					// if the ingestion is a success, or if the error is something other than a write error, then do not retry the ingestion
 					break;
 				}
 			}
@@ -130,7 +160,7 @@ public class CassandraPageTextIngester extends Ingester{
 		} catch (InterruptedException e) {
 			log.error("ingest trhead interrupted" + e.getMessage());
 		}
-		if(volumeAdded) {
+		if (result == UpdatePagesResult.SUCCESS) {
 			log.info("text ingested successfully " + volumeId);
 		/*	boolean accessLevelUpdated = accessLevelUpdater.update(volumeId);
 			if(accessLevelUpdated) {
@@ -138,26 +168,41 @@ public class CassandraPageTextIngester extends Ingester{
 			} else {
 				log.error("access level update failed " + volumeId);
 			}*/
+			return true;
 		} else {
 			log.info("text ingest failed " + volumeId);
+			return false;
 		}
-		return volumeAdded;
+		// return volumeAdded;
 	}
 
-	private boolean updatePages(File volumeZipFile, VolumeRecord volumeRecord) throws FileNotFoundException {
+	private UpdatePagesResult updatePages(File volumeZipFile, VolumeRecord volumeRecord) throws FileNotFoundException {
 		String volumeId = volumeRecord.getVolumeID();
-		boolean volumeAdded = false;
-		BatchStatement batchStmt = new BatchStatement(); // a batch to insert all pages of this volume
+		// boolean volumeAdded = false;
+//		BatchStatement batchStmt = new BatchStatement(); // a batch to insert all pages of this volume
+		BatchStatementBuilder batchStmtBuilder = BatchStatement.builder(BatchType.LOGGED);
 		
 		long volumeByteCount = 0;
-		long volumeCharacterCount = 0;
+		int volumeCharacterCount = 0; // originally, long
 		int i=0;
 		try {
-			Insert firstPageInsert = null;
+//			Insert firstPageInsert = null;
+			BoundStatement firstPageInsert = null;
 			ZipInputStream zis = new ZipInputStream(new FileInputStream(volumeZipFile));
 			ZipEntry zipEntry = null;
 			// keep track of the pages in the ZIP file, to compare later against the pages in the METS file
 			Set<String> pagesInZipFile = new HashSet<String>();
+
+			// insert statement to insert a single page and page-related data
+			Insert insert = QueryBuilder.insertInto(columnFamilyName)
+				.value("volumeid", QueryBuilder.bindMarker())
+				.value("sequence", QueryBuilder.bindMarker())
+				.value("byteCount", QueryBuilder.bindMarker())
+				.value("characterCount", QueryBuilder.bindMarker())
+				.value("contents", QueryBuilder.bindMarker())
+				.value("pageNumberLabel", QueryBuilder.bindMarker());
+			PreparedStatement insertStmt = cassandraManager.prepare(insert.build());
+
 			while((zipEntry = zis.getNextEntry()) != null) {
 				String entryName = zipEntry.getName();
 				String entryFilename = extractEntryFilename(entryName);
@@ -185,14 +230,14 @@ public class CassandraPageTextIngester extends Ingester{
 							log.info("Recording actual checksum");
 							// pageRecord.setChecksum(calculatedChecksum, checksumType);
 							pwChecksumInfo.println(volumeId + "#" + entryFilename); pwChecksumInfo.flush();
-							return volumeAdded; // directly return false if mismatch happens
+							return UpdatePagesResult.PAGE_CHECKSUM_MISMATCH_ERROR; // directly return false if mismatch happens
 						} else {
 							log.info("verified checksum for page " + entryFilename + " of " + volumeId);
 						}
 					} catch (NoSuchAlgorithmException e) {
-                        log.error("NoSuchAlgorithmException for checksum algorithm " + checksumType);
-                        log.error("Using checksum found in METS with a leap of faith");
-                    }
+						log.error("NoSuchAlgorithmException for checksum algorithm " + checksumType);
+						log.error("Using checksum found in METS with a leap of faith");
+					}
 					
 					//3. verify byte count of this page
 					if(pageContents.length != pageRecord.getByteCount() ) {
@@ -211,45 +256,78 @@ public class CassandraPageTextIngester extends Ingester{
 					pageRecord.setSequence(sequence);
 					
 					//5.  convert to string and count character count -- NOTE: some pages are not encoded in utf-8, but there is no charset indicator, so assume utf-8 for all for now
-                    String pageContentsString = new String(pageContents, "utf-8");
-                    pageRecord.setCharacterCount(pageContentsString.length());
-                    volumeCharacterCount += pageContentsString.length();
-                    
-                    //6. add page content into batch
-                    Insert insertStmt = QueryBuilder
-							.insertInto(columnFamilyName);
-					insertStmt
-							.value("volumeID", volumeId)
-							.value("sequence", pageRecord.getSequence())
-							.value("byteCount", pageRecord.getByteCount())
-							.value("characterCount",
-									pageRecord.getCharacterCount())
-							.value("contents", pageContentsString)
-						//	.value("checksum", pageRecord.getChecksum())
-						//	.value("checksumType", pageRecord.getChecksumType())
-							.value("pageNumberLabel", pageRecord.getLabel());
+					String pageContentsString = new String(pageContents, "utf-8");
+					pageRecord.setCharacterCount(pageContentsString.length());
+					volumeCharacterCount += pageContentsString.length();
+          
+					//6. add page content into batch
+/*                    Insert insertStmt = QueryBuilder.insertInto(columnFamilyName)
+                    		.value("volumeID", QueryBuilder.bindMarker())
+                    		.value("sequence", QueryBuilder.bindMarker())
+                    		.value("byteCount", QueryBuilder.bindMarker())
+                    		.value("characterCount", QueryBuilder.bindMarker())
+                    		.value("contents", QueryBuilder.bindMarker())
+                    		.value("pageNumberLabel", QueryBuilder.bindMarker());
+*/  
+					//6. add page content into batch
+					BoundStatement boundInsertStmt =
+						insertStmt.bind(volumeId,
+														pageRecord.getSequence(),
+														pageRecord.getByteCount(),
+														pageRecord.getCharacterCount(),
+														pageContentsString,
+														pageRecord.getLabel());
 					
 					pagesInZipFile.add(entryFilename);	
-					batchStmt.add(insertStmt);
+					batchStmtBuilder.addStatement(boundInsertStmt);
 					if(i == 0) {
-						firstPageInsert = insertStmt;
+						firstPageInsert = boundInsertStmt;
 					}
 					i++;
 				}
-			}
+			} // end of while loop
+			
 			zis.close();
-			//7. add static columns/fields into the first page
+			//7. add static columns/fields 
 			if (firstPageInsert != null) {
-				ByteBuffer zipBinaryContent = getByteBuffer(volumeZipFile);
-				firstPageInsert/*.value("accessLevel", 1)*/ // will decide access level based on rights database
-						.value("volumeByteCount", volumeByteCount)
+				// ByteBuffer zipBinaryContent = getByteBuffer(volumeZipFile);
+/*				firstPageInsert.value("volumeByteCount", volumeByteCount)
 						.value("volumeCharacterCount", volumeCharacterCount)
 						.value("structMetadata", volumeRecord.getMETSContents())
 						.value("structMetadataType", "METS")
-						.value("volumezip", zipBinaryContent)
+				     // .value("volumezip", zipBinaryContent)
 						.value("lastModifiedTime", new Date())
-						.value("cksumValidationTime", new Date())
-						.value("idSource", "Hathitrust");
+						.value("cksumValidationTime", new Date());
+ 					 //	.value("idSource", "Hathitrust");
+*/				
+				// simple statements with named parameters are currently not supported in batch statements; but the following should work
+				// in a later version
+/*				BuildableQuery insertStaticCols = QueryBuilder.insertInto(columnFamilyName)
+						.value("volumeid", QueryBuilder.bindMarker())
+						.value("volumeByteCount", QueryBuilder.bindMarker())
+						.value("volumeCharacterCount", QueryBuilder.bindMarker())
+						.value("structMetadata", QueryBuilder.bindMarker())
+						.value("structMetadataType", QueryBuilder.literal("METS"))
+						.value("lastModifiedTime", QueryBuilder.bindMarker())
+						.value("cksumValidationTime", QueryBuilder.bindMarker());
+ 
+				SimpleStatement insertStaticColsStmt = insertStaticCols.builder()
+						.addNamedValue("volumeid", volumeId)
+						.addNamedValue("volumeByteCount", volumeByteCount)
+						.addNamedValue("volumeCharacterCount", volumeCharacterCount)
+						.addNamedValue("structMetadata", volumeRecord.getMETSContents())
+						.addNamedValue("lastModifiedTime", new Date())
+						.addNamedValue("cksumValidationTime", new Date())
+						.build();*/
+
+				// the static columns are added using a separate statement, instead of combining them with the first page, 
+				// as was done earlier
+				SimpleStatement insertStaticColsStmt = SimpleStatement.newInstance(
+				        "INSERT INTO " + columnFamilyName + " (volumeid, volumeByteCount, volumeCharacterCount, structMetadata, structMetadataType, lastModifiedTime, cksumValidationTime) VALUES (?, ?, ?, ?, ?, ?, ?)",
+				        volumeId, volumeByteCount, volumeCharacterCount, volumeRecord.getMETSContents(), "METS", Instant.now(), Instant.now());
+				
+				batchStmtBuilder.addStatement(insertStaticColsStmt);
+				
 			} else {
 				log.error("Cannot get entry from ZIP (zip file is probably empty) " + volumeZipFile.getAbsolutePath());
 				if(!volumeRecord.getPageFilenameSet().isEmpty()) {
@@ -257,45 +335,54 @@ public class CassandraPageTextIngester extends Ingester{
 				} else {
 					pwEmptyZip.println(volumeId + " consistent with METS"); pwEmptyZip.flush();
 				}
-				return false;
+				return UpdatePagesResult.EMPTY_ZIP_ERROR;
 			}
 			
 			// check if the pages listed in the METS file match the pages found in the ZIP file
 			if (!pagesInZipFile.equals(volumeRecord.getPageFilenameSet())) {
 				log.error("Pages listed in METS file do not match pages in ZIP file: volumeId = {}", volumeId);
-				return false;
+				return UpdatePagesResult.METS_ZIP_MISMATCHED_PAGES_ERROR;
 			}
 			
 			//8. then push the volume into cassandra
-			batchStmt.setConsistencyLevel(ConsistencyLevel.ONE);
-			cassandraManager.execute(batchStmt);
+			batchStmtBuilder.setConsistencyLevel(DefaultConsistencyLevel.ONE);
+			cassandraManager.executeWithoutRetry(batchStmtBuilder.build());
 		} catch (IOException e) {
 			log.error("IOException getting entry from ZIP " + volumeZipFile.getAbsolutePath(), e);
-			return false;
+			return UpdatePagesResult.VOLUME_ZIP_ERROR;
 		} catch (WriteFailureException e) {
+			// a non-timeout error during a write query; happens when some of the replicas that are contacted by the coordinator 
+			// reply with an error
 			log.error("write failure for " + volumeId + ": " + e.getMessage());
-			log.error("write failure for " + volumeId + ": " + e.getFailures() + " failures");
-			log.error("write failure for " + volumeId + ": " + e.getAddress() + " coordinator");
+			log.error("write failure for " + volumeId + ": " + e.getNumFailures() + " failures");
+			log.error("write failure for " + volumeId + ": " + e.getCoordinator() + " coordinator");
 			log.error("write failure for " + volumeId + ": " + e.getLocalizedMessage() + " local message");
-			log.error("write failure for " + volumeId + ": " + e.getReceivedAcknowledgements() + " acks received");
-			log.error("write failure for " + volumeId + ": " + e.getRequiredAcknowledgements() + " acks required");
-			log.error("write failure for " + volumeId + ": " + e.getHost() + " host");
+			log.error("write failure for " + volumeId + ": " + e.getReceived() + " acks received");
+			log.error("write failure for " + volumeId + ": " + e.getBlockFor() + " acks required");
+			// log.error("write failure for " + volumeId + ": " + e.getHost() + " host"); // getHost() returns the coordinator of the request, not the failed host
 			log.error("write failure for " + volumeId + ": " + e.getConsistencyLevel() + " consistency");
 			log.error("write failure for " + volumeId + ": " + e.getWriteType() + " write type");
-			return false;
+			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
 		} catch (WriteTimeoutException e) {
+			// a server-side timeout during a write query
 			log.error("write failure for " + volumeId + ": " + e.getMessage());
-			return false;
-		} catch (OperationTimedOutException e) {
-			log.error("operation timeout for " + volumeId + ": " + e.getMessage());
-			return false;
-		}
+			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
+		} catch (DriverTimeoutException e) {
+			log.error("driver timeout for " + volumeId + ": " + e.getMessage());
+			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
+		} 
 		
-		volumeAdded = true;
-		return volumeAdded;
+/*		catch (Exception e) {
+			log.error("Exception in updatePages", e);
+			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
+		}*/
+		
+		// volumeAdded = true;
+		return UpdatePagesResult.SUCCESS;
 	}
 
-	private ByteBuffer getByteBuffer(File file) {
+	// the following is used to create the volumezip value stored in Cassandra, from the contents of the zip file in the pairtree
+/*	private ByteBuffer getByteBuffer(File file) {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		byte[] buffer = new byte[32767];
 		
@@ -316,7 +403,7 @@ public class CassandraPageTextIngester extends Ingester{
 			log.error("IOException while attempting to read " + file.getName());
 		}
 		return null;
-	}
+	}*/
 
 	private byte[] readPagecontentsFromInputStream(ZipInputStream zis) {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();

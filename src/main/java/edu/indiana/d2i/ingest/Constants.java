@@ -13,7 +13,7 @@ public class Constants {
 	public static final String PK_MARC_COLFAMILY="MARC-COLUMN-FAMILY";
 	public static final String PK_MARC_COLFAMILY_KEY="MARC-COLUMN-FAMILY-KEY";
 	public static final String PK_MARC_COLUMN="MARC-COLUMN";
-	public static final String PK_ACCESS_LEVEL_COLUMN="ACCESS-LEVEL-COLUMN";
+	// public static final String PK_ACCESS_LEVEL_COLUMN="ACCESS-LEVEL-COLUMN";
 	public static final String PK_LAST_MOD_TIME_COLUMN="LAST-MOD-TIME-COLUMN";
 	public static final String PK_MARC_INGESTER_OUTFILE="MARC-INGESTER-OUTFILE";
 	public static final String PK_REDIS_HOST="REDIS-HOST";
@@ -32,7 +32,7 @@ public class Constants {
 	public static final String DEFAULT_MARC_COLFAMILY="testmarc";
 	public static final String DEFAULT_MARC_COLFAMILY_KEY="volumeid";
 	public static final String DEFAULT_MARC_COLUMN="semanticMetadata";
-	public static final String DEFAULT_ACCESS_LEVEL_COLUMN="accessLevel";
+	// public static final String DEFAULT_ACCESS_LEVEL_COLUMN="accessLevel";
 	public static final String DEFAULT_LAST_MOD_TIME_COLUMN="lastModifiedTime";
 	public static final String DEFAULT_MARC_INGESTER_OUTFILE="marc-ingester-output.txt";
 	public static final String DEFAULT_REDIS_HOST="htrc5.pti.indiana.edu";
@@ -44,8 +44,10 @@ public class Constants {
 	public static final String DEFAULT_REDIS_NUM_HSETS_PER_PIPELINE="1000";
 	
 	// some constants to locate randomly distributed volume zip and mets files
-	// public static final String ROOT_PATH = "/N/dc2/projects/htrc/data/ht_text";
-	public static final String ROOT_PATH = "/N/project/htrc/data/ht_text"; // after move from DC2 to slate
+	public static final String ROOT_PATH = "/N/project/htrc/data/ht_text"; // after move from DC2 to slatel; used for the new cluster 
+																		   // (hts7 - hts12)
+	// public static final String ROOT_PATH = "/N/slate/drhtrc/data/ht_text"; // temporary move due to slowness of /N/project; used 
+																			  // for ingestion into the current cluster (hts1- hts6)
 	public static final String TO_PAIRTREE_PATH = "ingester-data/full_set";
 	public static final String PAIRTREE_ROOT = "pairtree_root";
 	public static final char SEPERATOR = File.separatorChar;

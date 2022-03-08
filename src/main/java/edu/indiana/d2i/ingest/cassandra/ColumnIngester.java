@@ -1,7 +1,7 @@
 package edu.indiana.d2i.ingest.cassandra;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 
 import edu.indiana.d2i.ingest.Constants;
 import edu.indiana.d2i.ingest.util.Configuration;
@@ -30,7 +30,7 @@ public abstract class ColumnIngester<T> {
 		Row row = rs.one(); 
 		if (row != null) {
 			try {
-				return row.getBool(0);
+				return row.getBoolean(0);
 			} catch (Exception e) {
 				// IndexOutOfBoundsException, InvalidTypeException
 				return false;

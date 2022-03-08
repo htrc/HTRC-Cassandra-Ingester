@@ -7,7 +7,6 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import edu.indiana.d2i.ingest.cassandra.CassandraAccessLevelUpdater;
 import edu.indiana.d2i.ingest.cassandra.CassandraIngester;
 import edu.indiana.d2i.ingest.cassandra.CassandraManager;
 import edu.indiana.d2i.ingest.cassandra.MarcProcessor;
@@ -61,7 +60,8 @@ public class IngestService {
 			log.info("marc update ends");
 		}
 		
-		if(Boolean.valueOf(Configuration.getProperty("UPDATE_ACCESS_LEVEL_TO_CASSANDRA"))) {
+		// the access level column is no longer present in the table
+/*		if(Boolean.valueOf(Configuration.getProperty("UPDATE_ACCESS_LEVEL_TO_CASSANDRA"))) {
 			log.info("update access level...");
 			if (redisClient == null) {
 				redisClient = new RedisClient();
@@ -77,7 +77,7 @@ public class IngestService {
 			}
 			log.info("access level update ends ...");
 		}
-
+*/
 		if (Boolean.valueOf(Configuration.getProperty("UPDATE_AVAIL_STATUS_IN_REDIS"))) {
 			log.info("update availability status in redis ...");
 			if (redisClient == null) {

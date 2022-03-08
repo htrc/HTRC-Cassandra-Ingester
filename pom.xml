@@ -1,146 +1,168 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<groupId>edu.indiana.d2i.zong</groupId>
-	<artifactId>htrc-cassandra-ingester</artifactId>
-	<version>2.0.2</version>
+	 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>edu.indiana.d2i.zong</groupId>
+  <artifactId>htrc-cassandra-ingester</artifactId>
+  <version>2.1.0-SNAPSHOT</version>
 
-	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-	</properties>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <log4j.version>2.17.1</log4j.version>
+    <dse.cassandra.driver.version>4.13.0</dse.cassandra.driver.version>
+  </properties>
 
-	<repositories>
-		<repository>
-			<id>nexus</id>
-			<name>HTRC Nexus Repository</name>
-			<url>http://nexus.htrc.illinois.edu/content/groups/public/</url>
-			<releases>
-				<enabled>true</enabled>
-				<updatePolicy>daily</updatePolicy>
-			</releases>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-		</repository>
+  <repositories>
+    <repository>
+      <id>nexus</id>
+      <name>HTRC Nexus Repository</name>
+      <url>http://nexus.htrc.illinois.edu/content/groups/public/</url>
+      <releases>
+	<enabled>true</enabled>
+	<updatePolicy>daily</updatePolicy>
+      </releases>
+      <snapshots>
+	<enabled>true</enabled>
+      </snapshots>
+    </repository>
 
-		<repository>
-			<id>maven2-repository.java.net</id>
-			<name>Java.net Repository for Maven</name>
-			<url>http://download.java.net/maven/2</url>
-			<layout>default</layout>
-			<releases>
-				<enabled>true</enabled>
-				<updatePolicy>daily</updatePolicy>
-			</releases>
-			<snapshots>
-				<enabled>true</enabled>
-				<updatePolicy>always</updatePolicy>
-			</snapshots>
-		</repository>
+    <repository>
+      <id>maven2-repository.java.net</id>
+      <name>Java.net Repository for Maven</name>
+      <url>http://download.java.net/maven/2</url>
+      <layout>default</layout>
+      <releases>
+	<enabled>true</enabled>
+	<updatePolicy>daily</updatePolicy>
+      </releases>
+      <snapshots>
+	<enabled>true</enabled>
+	<updatePolicy>always</updatePolicy>
+      </snapshots>
+    </repository>
 
-		<repository>
-			<id>cloudera</id>
-			<url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
-			<releases>
-				<enabled>true</enabled>
-			</releases>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-		</repository>
+    <repository>
+      <id>cloudera</id>
+      <url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
+      <releases>
+	<enabled>true</enabled>
+      </releases>
+      <snapshots>
+	<enabled>true</enabled>
+      </snapshots>
+    </repository>
 
-	</repositories>
+  </repositories>
 
-	<dependencies>
-		<dependency>
-			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-api</artifactId>
-			<version>2.13.3</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-core</artifactId>
-			<version>2.13.3</version>
-		</dependency>
-		<dependency>
-			<groupId>gov.loc</groupId>
-			<artifactId>pairtree</artifactId>
-			<version>1.1.2</version>
-		</dependency>
-        <dependency>
-			<groupId>org.apache.solr</groupId>
-			<artifactId>solr-solrj</artifactId>
-			<version>6.5.0</version>
-		</dependency>
-		<dependency>
-			<groupId>stax</groupId>
-			<artifactId>stax</artifactId>
-			<version>1.2.0</version>
-		</dependency>
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.13.1</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>com.datastax.cassandra</groupId>
-			<artifactId>cassandra-driver-core</artifactId>
-			<version>3.1.0</version>
-		</dependency>
-		<dependency>
-			<groupId>com.datastax.cassandra</groupId>
-			<artifactId>cassandra-driver-mapping</artifactId>
-			<version>3.1.0</version>
-		</dependency>
-		<dependency>
-			<groupId>com.datastax.cassandra</groupId>
-			<artifactId>cassandra-driver-extras</artifactId>
-			<version>3.1.0</version>
-		</dependency>
-		<dependency>
-		  <groupId>com.googlecode.json-simple</groupId>
-		  <artifactId>json-simple</artifactId>
-		  <version>1.1.1</version>
-		</dependency>
-		<dependency>
-          <groupId>redis.clients</groupId>
-          <artifactId>jedis</artifactId>
-          <version>2.9.0</version>
-        </dependency>
-	</dependencies>
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>gov.loc</groupId>
+      <artifactId>pairtree</artifactId>
+      <version>1.1.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.solr</groupId>
+      <artifactId>solr-solrj</artifactId>
+      <version>6.5.0</version>
+    </dependency>
+    <dependency>
+      <groupId>stax</groupId>
+      <artifactId>stax</artifactId>
+      <version>1.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.datastax.oss</groupId>
+      <artifactId>java-driver-core</artifactId>
+      <version>${dse.cassandra.driver.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.datastax.oss</groupId>
+      <artifactId>java-driver-query-builder</artifactId>
+      <version>${dse.cassandra.driver.version}</version>
+    </dependency>
+    <!-- <dependency> -->
+    <!-- 	<groupId>com.datastax.cassandra</groupId> -->
+    <!-- 	<artifactId>cassandra-driver-core</artifactId> -->
+    <!-- 	<version>3.1.0</version> -->
+    <!-- </dependency> -->
+    <!-- <dependency> -->
+    <!-- 	<groupId>com.datastax.cassandra</groupId> -->
+    <!-- 	<artifactId>cassandra-driver-mapping</artifactId> -->
+    <!-- 	<version>3.1.0</version> -->
+    <!-- </dependency> -->
+    <!-- <dependency> -->
+    <!-- 	<groupId>com.datastax.cassandra</groupId> -->
+    <!-- 	<artifactId>cassandra-driver-extras</artifactId> -->
+    <!-- 	<version>3.1.0</version> -->
+    <!-- </dependency> -->
+    <dependency>
+      <groupId>com.googlecode.json-simple</groupId>
+      <artifactId>json-simple</artifactId>
+      <version>1.1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>redis.clients</groupId>
+      <artifactId>jedis</artifactId>
+      <version>2.9.0</version>
+    </dependency>
+  </dependencies>
 
-	<build>
-		<finalName>htrc-cassandra-ingester</finalName>
-		<plugins>
-			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-				<version>3.0.0</version>
-				<configuration>
-					<descriptorRefs>
-						<descriptorRef>jar-with-dependencies</descriptorRef>
-					</descriptorRefs>
-				</configuration>
-				<executions>
-					<execution>
-						<id>make-assembly</id>
-						<phase>package</phase>
-						<goals>
-							<goal>single</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
+  <build>
+    <finalName>htrc-cassandra-ingester</finalName>
+    <plugins>
+      <plugin>
+	<groupId>org.apache.maven.plugins</groupId>
+	<artifactId>maven-compiler-plugin</artifactId>
+	<version>3.8.1</version>
+	<configuration>
+	  <verbose>true</verbose>
+	  <fork>true</fork>
+	  <executable>/usr/bin/javac</executable>
+	</configuration>
+      </plugin>
+      
+      <plugin>
+	<artifactId>maven-assembly-plugin</artifactId>
+	<version>3.0.0</version>
+	<configuration>
+	  <descriptorRefs>
+	    <descriptorRef>jar-with-dependencies</descriptorRef>
+	  </descriptorRefs>
+	</configuration>
+	<executions>
+	  <execution>
+	    <id>make-assembly</id>
+	    <phase>package</phase>
+	    <goals>
+	      <goal>single</goal>
+	    </goals>
+	  </execution>
+	</executions>
+      </plugin>
+    </plugins>
+  </build>
 
-		</plugins>
-	</build>
-
-	<pluginRepositories>
-		<pluginRepository>
-			<id>onejar-maven-plugin.googlecode.com</id>
-			<url>http://onejar-maven-plugin.googlecode.com/svn/mavenrepo</url>
-		</pluginRepository>
-	</pluginRepositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>onejar-maven-plugin.googlecode.com</id>
+      <url>http://onejar-maven-plugin.googlecode.com/svn/mavenrepo</url>
+    </pluginRepository>
+  </pluginRepositories>
 </project>
