@@ -158,7 +158,6 @@
       </plugin>
     </plugins>
   </build>
-
   <pluginRepositories>
     <pluginRepository>
       <id>onejar-maven-plugin.googlecode.com</id>
