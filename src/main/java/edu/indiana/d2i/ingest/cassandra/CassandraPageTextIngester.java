@@ -5,23 +5,24 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
-import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.util.Date;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.datastax.oss.driver.api.core.DriverTimeoutException;
+import com.datastax.oss.driver.api.core.NoNodeAvailableException;
 
 //import com.datastax.driver.core.BatchStatement;
 //import com.datastax.driver.core.ConsistencyLevel;
@@ -36,11 +37,13 @@ import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.servererrors.WriteFailureException;
 import com.datastax.oss.driver.api.core.servererrors.WriteTimeoutException;
-import com.datastax.oss.driver.api.querybuilder.BuildableQuery;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.delete.Delete;
 import com.datastax.oss.driver.api.querybuilder.insert.Insert;
 
 import edu.indiana.d2i.ingest.Constants;
@@ -70,7 +73,8 @@ public class CassandraPageTextIngester extends Ingester{
 		EMPTY_ZIP_ERROR,
 		METS_ZIP_MISMATCHED_PAGES_ERROR,
 		VOLUME_ZIP_ERROR,
-		CASSANSDRA_WRITE_ERROR,
+		CASSANDRA_WRITE_ERROR,
+		CASSANDRA_READ_ERROR,
 		OTHER;
 	}
 	
@@ -145,12 +149,15 @@ public class CassandraPageTextIngester extends Ingester{
 			int maxAttempts = 3;
 			while(maxAttempts > 0) {
 				result = updatePages(volumeZipFile, volumeRecord);
-				if (result == UpdatePagesResult.CASSANSDRA_WRITE_ERROR) {
-					// retry the ingestion only if there has been an error while trying to write to Cassandra
+				if (result == UpdatePagesResult.CASSANDRA_WRITE_ERROR ||
+						result == UpdatePagesResult.CASSANDRA_READ_ERROR) {
+					// retry the ingestion only if there has been an error while trying
+					// to read from or write to Cassandra
 					maxAttempts --;
 					Thread.sleep(5000);
 				} else {
-					// if the ingestion is a success, or if the error is something other than a write error, then do not retry the ingestion
+					// if the ingestion is a success, or if the error is something
+					// other than a read or write error, then do not retry the ingestion
 					break;
 				}
 			}
@@ -179,19 +186,43 @@ public class CassandraPageTextIngester extends Ingester{
 	private UpdatePagesResult updatePages(File volumeZipFile, VolumeRecord volumeRecord) throws FileNotFoundException {
 		String volumeId = volumeRecord.getVolumeID();
 		// boolean volumeAdded = false;
-//		BatchStatement batchStmt = new BatchStatement(); // a batch to insert all pages of this volume
-		BatchStatementBuilder batchStmtBuilder = BatchStatement.builder(BatchType.LOGGED);
-		
+		BatchStatementBuilder batchStmtBuilder =
+			BatchStatement.builder(BatchType.LOGGED);
+
+		// determine the page sequences of the volume if it already exists in the
+		// database
+		SimpleStatement selectPageSeqStmt
+			= SimpleStatement.newInstance("SElECT sequence FROM " + columnFamilyName +
+																		" WHERE volumeid = ?", volumeId);		
+		Set<String> existingPageSequences = Collections.emptySet();
+		try {
+			ResultSet result = cassandraManager.executeWithoutRetry(selectPageSeqStmt.setConsistencyLevel(ConsistencyLevel.ONE));
+			List<Row> rows = result.all(); // rows is an empty List if the vol does
+			                               // not exist in the database
+			existingPageSequences = rows.stream()
+				.map(row -> row.getString("sequence"))
+				.collect(Collectors.toSet());
+		} catch (NoNodeAvailableException nhae) {
+			log.error("updatePages: Failed to get page sequences for volume " + volumeId,
+								nhae);
+			return UpdatePagesResult.CASSANDRA_READ_ERROR;
+		}
+
 		long volumeByteCount = 0;
 		int volumeCharacterCount = 0; // originally, long
 		int i=0;
 		try {
-//			Insert firstPageInsert = null;
+			// Insert firstPageInsert = null;
 			BoundStatement firstPageInsert = null;
 			ZipInputStream zis = new ZipInputStream(new FileInputStream(volumeZipFile));
 			ZipEntry zipEntry = null;
-			// keep track of the pages in the ZIP file, to compare later against the pages in the METS file
+			// keep track of the pages in the ZIP file, to compare later against
+			// the pages in the METS file
 			Set<String> pagesInZipFile = new HashSet<String>();
+			// set of page sequences in the the zip file that is ingested, to compare
+			// against existing page sequences, if the volume already exists in the 
+			// database
+			Set<String> newPageSequences = new HashSet<String>();
 
 			// insert statement to insert a single page and page-related data
 			Insert insert = QueryBuilder.insertInto(columnFamilyName)
@@ -255,7 +286,9 @@ public class CassandraPageTextIngester extends Ingester{
 					String sequence = generateSequence(order);
 					pageRecord.setSequence(sequence);
 					
-					//5.  convert to string and count character count -- NOTE: some pages are not encoded in utf-8, but there is no charset indicator, so assume utf-8 for all for now
+					//5.  convert to string and count character count -- NOTE: some
+					//pages are not encoded in utf-8, but there is no charset
+					//indicator, so assume utf-8 for all for now
 					String pageContentsString = new String(pageContents, "utf-8");
 					pageRecord.setCharacterCount(pageContentsString.length());
 					volumeCharacterCount += pageContentsString.length();
@@ -278,7 +311,8 @@ public class CassandraPageTextIngester extends Ingester{
 														pageContentsString,
 														pageRecord.getLabel());
 					
-					pagesInZipFile.add(entryFilename);	
+					pagesInZipFile.add(entryFilename);
+					newPageSequences.add(pageRecord.getSequence());
 					batchStmtBuilder.addStatement(boundInsertStmt);
 					if(i == 0) {
 						firstPageInsert = boundInsertStmt;
@@ -344,7 +378,24 @@ public class CassandraPageTextIngester extends Ingester{
 				return UpdatePagesResult.METS_ZIP_MISMATCHED_PAGES_ERROR;
 			}
 			
-			//8. then push the volume into cassandra
+			//8. Delete any extra pages of the volume that already exist in the database
+			// pageSequencesToDelete is the set difference (existingPageSequences -
+			// newPageSequences)
+			Set<String> pageSequencesToDelete = new HashSet(existingPageSequences);
+			pageSequencesToDelete.removeAll(newPageSequences);
+			Delete deleteQuery =
+			  QueryBuilder.deleteFrom(columnFamilyName)
+			    .whereColumn("volumeid").isEqualTo(QueryBuilder.bindMarker())
+			    .whereColumn("sequence").isEqualTo(QueryBuilder.bindMarker());
+			PreparedStatement deleteStmt = cassandraManager.prepare(deleteQuery.build());
+			if (!pageSequencesToDelete.isEmpty()) {
+				log.info("Deleting existing extra pages for volume {}: page sequences {}", volumeId, pageSequencesToDelete.stream().collect(Collectors.joining(",")));
+			}
+			for (String sequence: pageSequencesToDelete) {
+			  batchStmtBuilder.addStatement(deleteStmt.bind(volumeId, sequence));
+			}
+
+			//9. then push the volume into cassandra (add static columns, and pages, and delete extra pages)
 			batchStmtBuilder.setConsistencyLevel(DefaultConsistencyLevel.ONE);
 			cassandraManager.executeWithoutRetry(batchStmtBuilder.build());
 		} catch (IOException e) {
@@ -362,14 +413,14 @@ public class CassandraPageTextIngester extends Ingester{
 			// log.error("write failure for " + volumeId + ": " + e.getHost() + " host"); // getHost() returns the coordinator of the request, not the failed host
 			log.error("write failure for " + volumeId + ": " + e.getConsistencyLevel() + " consistency");
 			log.error("write failure for " + volumeId + ": " + e.getWriteType() + " write type");
-			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
+			return UpdatePagesResult.CASSANDRA_WRITE_ERROR;
 		} catch (WriteTimeoutException e) {
 			// a server-side timeout during a write query
 			log.error("write failure for " + volumeId + ": " + e.getMessage());
-			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
+			return UpdatePagesResult.CASSANDRA_WRITE_ERROR;
 		} catch (DriverTimeoutException e) {
 			log.error("driver timeout for " + volumeId + ": " + e.getMessage());
-			return UpdatePagesResult.CASSANSDRA_WRITE_ERROR;
+			return UpdatePagesResult.CASSANDRA_WRITE_ERROR;
 		} 
 		
 /*		catch (Exception e) {
