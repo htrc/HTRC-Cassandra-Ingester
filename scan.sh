@@ -1,3 +1,3 @@
 #!/bin/bash
 
-java -cp htrc-cassandra-ingester-jar-with-dependencies.jar edu.indiana.d2i.ingest.cassandra.CassandraScanner pd_table
+java -Ddatastax-java-driver.basic.request.timeout="30 seconds" -cp htrc-cassandra-ingester-jar-with-dependencies.jar edu.indiana.d2i.ingest.cassandra.CassandraScanner full_corpus
