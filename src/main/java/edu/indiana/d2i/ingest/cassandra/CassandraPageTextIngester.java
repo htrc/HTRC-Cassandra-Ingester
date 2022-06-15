@@ -40,6 +40,7 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.servererrors.ReadTimeoutException;
 import com.datastax.oss.driver.api.core.servererrors.WriteFailureException;
 import com.datastax.oss.driver.api.core.servererrors.WriteTimeoutException;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
@@ -203,8 +204,13 @@ public class CassandraPageTextIngester extends Ingester{
 				.map(row -> row.getString("sequence"))
 				.collect(Collectors.toSet());
 		} catch (NoNodeAvailableException nhae) {
-			log.error("updatePages: Failed to get page sequences for volume " + volumeId,
-								nhae);
+			log.error("updatePages: Failed to get page sequences for volume " + volumeId, nhae);
+			return UpdatePagesResult.CASSANDRA_READ_ERROR;
+		} catch (ReadTimeoutException e) {
+			log.error("updatePages: Read timeout while getting page sequences for volume " + volumeId, e);
+			return UpdatePagesResult.CASSANDRA_READ_ERROR;
+		} catch (Exception e) {
+			log.error("updatePages: Exception while getting page sequences for volume " + volumeId, e);
 			return UpdatePagesResult.CASSANDRA_READ_ERROR;
 		}
 
