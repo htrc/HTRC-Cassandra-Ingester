@@ -51,10 +51,12 @@ public class CassandraManager {
 	
 	private CassandraManager() {	
 		this.contactPoints = Configuration.getProperty("CONTACT_POINTS").split(",");
+		String cassandraUserName = Configuration.getProperty("CASSANDRA_USERNAME");
+		String cassandraPassword = Configuration.getProperty("CASSANDRA_PASSWORD");
 		CqlSessionBuilder builder = CqlSession.builder();
 		for(String contactPoint : contactPoints) {
 		  System.out.println("contact point: " + contactPoint);
-		  builder.addContactPoint(new InetSocketAddress(contactPoint, 9042));
+		  builder.addContactPoint(new InetSocketAddress(contactPoint, 9042)).withAuthCredentials(cassandraUserName, cassandraPassword);
 		}
 		this.volumeKeySpace = Configuration.getProperty("KEY_SPACE");
 		System.out.println("volumeKeySpace = " + volumeKeySpace);

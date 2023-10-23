@@ -84,6 +84,42 @@ public class CassandraPageTextIngester extends Ingester{
 		columnFamilyName = Configuration.getProperty(Constants.PK_VOLUME_TEXT_COLUMN_FAMILY);
 		if(! cassandraManager.checkTableExist(columnFamilyName)) {
 			System.out.println("Table " + columnFamilyName + "does not exist; creating table");
+			/*
+			TODO
+			Fix following with
+			CREATE TABLE htrccorpus.volumecontents (
+				volumeid text,
+				sequence text,
+				bytecount bigint,
+				charactercount int,
+				cksumvalidationtime timestamp static,
+				contents text,
+				lastmodifiedtime timestamp static,
+				pagenumberlabel text,
+				semanticmetadata text static,
+				semanticmetadatatype text static,
+				structmetadata text static,
+				structmetadatatype text static,
+				volumebytecount bigint static,
+				volumecharactercount int static,
+				PRIMARY KEY (volumeid, sequence)
+			) WITH CLUSTERING ORDER BY (sequence ASC)
+				AND additional_write_policy = '99PERCENTILE'
+				AND bloom_filter_fp_chance = 0.01
+				AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+				AND comment = ''
+				AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+				AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+				AND crc_check_chance = 1.0
+				AND default_time_to_live = 0
+				AND gc_grace_seconds = 864000
+				AND max_index_interval = 2048
+				AND memtable_flush_period_in_ms = 0
+				AND min_index_interval = 128
+				AND nodesync = {'enabled': 'true', 'incremental': 'true'}
+				AND read_repair = 'BLOCKING'
+				AND speculative_retry = '99PERCENTILE';
+			 */
 			String createTableStr = "CREATE TABLE " + columnFamilyName + " ("
 		    		+ "volumeID text, "
 //					+ "idSource text STATIC, "  // mostly HT
